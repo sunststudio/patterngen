@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Germany — Material Studio (tiles &amp; tufted rugs)</title>
+<style>
+  :root{
+    --bg-page:#e4e1d9;
+    --ink:#232320;
+    --paper:#dedad0;
+    --rule:#b9b3a4;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg-page);color:var(--ink);
+    font-family: 'Courier New', ui-monospace, SFMono-Regular, Menlo, monospace;}
+  .wrap{max-width:1180px;margin:0 auto;padding:48px 28px 80px;}
+  header{margin-bottom:28px;border-bottom:1px solid var(--rule);padding-bottom:20px;}
+  h1{font-size:20px;letter-spacing:0.14em;text-transform:uppercase;margin:0 0 8px;font-weight:700;}
+  p.sub{font-size:13px;line-height:1.6;max-width:680px;color:#4d4a43;margin:0;}
+  .layout{display:flex;gap:28px;align-items:flex-start;flex-wrap:wrap;}
+  .stage{flex:1 1 560px;min-width:320px;}
+  .panel{border:1px solid var(--rule);padding:2px;background:var(--paper);}
+  canvas{display:block;width:100%;height:auto;background:var(--paper);}
+  .controls-col{flex:0 0 260px;}
+  .group{border:1px solid var(--rule);padding:16px;margin-bottom:16px;background:var(--paper);}
+  .group h2{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;margin:0 0 12px;color:#4d4a43;}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;font-size:11px;}
+  .row:last-child{margin-bottom:0;}
+  .row label{color:#4d4a43;letter-spacing:.03em;}
+  input[type=color]{width:34px;height:24px;border:1px solid var(--ink);padding:0;background:none;cursor:pointer;}
+  input[type=range]{width:130px;}
+  .buttons{display:flex;gap:8px;flex-wrap:wrap;}
+  button{
+    font-family:inherit;font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+    background:transparent;border:1px solid var(--ink);color:var(--ink);
+    padding:7px 12px;cursor:pointer;transition:all .15s ease;
+  }
+  button.active,button:hover{background:var(--ink);color:var(--paper);}
+  .btn-export{
+    display:block;width:100%;margin-top:16px;padding:16px 14px;
+    background:var(--ink);color:var(--paper);border:1px solid var(--ink);
+    font-size:13px;font-weight:700;letter-spacing:.12em;
+  }
+  .btn-export:hover{background:#000;border-color:#000;}
+  .tabbar{display:flex;gap:0;margin-bottom:16px;border:1px solid var(--rule);}
+  .tabbar button{flex:1;border:none;border-right:1px solid var(--rule);background:var(--paper);}
+  .tabbar button:last-child{border-right:none;}
+  .tabbar button.active{background:var(--ink);color:var(--paper);}
+  .tab-panel{display:none;}
+  .tab-panel.active{display:block;}
+  .row select{font-family:inherit;font-size:11px;background:var(--paper);border:1px solid var(--ink);color:var(--ink);padding:4px 6px;}
+  .hint{font-size:10px;color:#8a8578;line-height:1.5;margin-top:2px;}
+  footer{margin-top:34px;font-size:10.5px;color:#7a7669;letter-spacing:.03em;line-height:1.7;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Goal Rhythm — Material Studio</h1>
+    <p class="sub">Same match data and soft-bloom pattern engine as the prototype, with a render layer for testing the
+    pattern as an actual material: ceramic tile (grout lines, module grid) or tufted rug (pile texture, fringe edges),
+    plus a color-adjustment pass — contrast, warmth, hue, saturation — for matching a colorway before sampling.</p>
+  </header>
+
+  <div class="layout">
+    <div class="stage">
+      <div class="buttons" style="margin-bottom:16px;">
+        <button data-set="all" class="active">All matches</button>
+        <button data-set="men">Men · World Cup 2026</button>
+        <button data-set="women">Women · Euro 2025</button>
+      </div>
+      <div class="panel"><canvas id="cv" width="960" height="1280"></canvas></div>
+      <div class="buttons" style="margin-top:16px;">
+        <button data-view="tile" class="active">Single motif</button>
+        <button data-view="repeat">Repeat preview</button>
+      </div>
+      <button id="btnExport" type="button" class="btn-export">Export PNG</button>
+    </div>
+
+    <div class="controls-col">
+      <div class="tabbar">
+        <button type="button" class="tab-btn active" data-tab="pattern">Pattern</button>
+        <button type="button" class="tab-btn" data-tab="material">Material &amp; Color</button>
+      </div>
+
+      <div class="tab-panel active" id="tabPattern">
+        <div class="group">
+          <h2>Key colors</h2>
+          <div class="row"><label>Field (bg)</label><input type="color" id="cBg" value="#FF00FF"></div>
+          <div class="row"><label>Behind / recedes</label><input type="color" id="cBehind" value="#00FFFF"></div>
+          <div class="row"><label>Ahead / blooms</label><input type="color" id="cAhead" value="#00FF00"></div>
+          <div class="row"><label>German goal</label><input type="color" id="cGold" value="#FF00FF"></div>
+          <div class="row"><label>Opponent goal</label><input type="color" id="cCrimson" value="#0000FF"></div>
+        </div>
+        <div class="group">
+          <h2>Density / spread</h2>
+          <div class="row"><label>Spread (bleed)</label><input type="range" id="rSpread" min="0" max="100" value="45"></div>
+          <div class="row"><label>Softness (blur)</label><input type="range" id="rBlur" min="0" max="40" value="16"></div>
+          <div class="row"><label>Grain</label><input type="range" id="rGrain" min="0" max="20" value="6"></div>
+        </div>
+        <div class="group">
+          <h2>Rippled glass</h2>
+          <div class="row"><label>Enabled</label><input type="checkbox" id="cGlass" checked></div>
+          <div class="row"><label>Ribs (count)</label><input type="range" id="rRibs" min="2" max="30" value="9"></div>
+          <div class="row"><label>Rib amount</label><input type="range" id="rRibAmp" min="0" max="40" value="14"></div>
+          <div class="row"><label>Bend</label><input type="range" id="rBend" min="0" max="100" value="55"></div>
+          <div class="row"><label>Waviness</label><input type="range" id="rWaviness" min="1" max="12" value="3"></div>
+          <div class="row"><label>Chroma fringe</label><input type="range" id="rChroma" min="0" max="10" value="3"></div>
+        </div>
+        <div class="group">
+          <h2>Slice displacement</h2>
+          <div class="row"><label>Enabled</label><input type="checkbox" id="cSlice"></div>
+          <div class="row"><label>Orientation</label>
+            <span class="buttons">
+              <button type="button" data-orient="vertical" class="active">Vertical</button>
+              <button type="button" data-orient="horizontal">Horizontal</button>
+            </span>
+          </div>
+          <div class="row"><label>Slices</label><input type="range" id="rSliceCount" min="2" max="60" value="14"></div>
+          <div class="row"><label>Displacement</label><input type="range" id="rSliceAmount" min="0" max="200" value="40"></div>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="tabMaterial">
+        <div class="group">
+          <h2>Render as</h2>
+          <div class="buttons">
+            <button type="button" data-material="none" class="active">Flat pattern</button>
+            <button type="button" data-material="tile">Ceramic tile</button>
+            <button type="button" data-material="rug">Tufted rug</button>
+          </div>
+          <div class="hint">Adds a render layer on top of the pattern — grout lines for tile, pile texture and fringe for rug.</div>
+        </div>
+        <div class="group" id="groupTile" style="display:none;">
+          <h2>Tile grout</h2>
+          <div class="row"><label>Columns</label><input type="range" id="rTileCols" min="1" max="8" value="3"></div>
+          <div class="row"><label>Rows</label><input type="range" id="rTileRows" min="1" max="10" value="4"></div>
+          <div class="row"><label>Grout width</label><input type="range" id="rGroutWidth" min="1" max="20" value="6"></div>
+          <div class="row"><label>Grout color</label><input type="color" id="cGroutColor" value="#c9c3b4"></div>
+        </div>
+        <div class="group" id="groupRug" style="display:none;">
+          <h2>Rug texture</h2>
+          <div class="row"><label>Pile intensity</label><input type="range" id="rPileIntensity" min="0" max="100" value="35"></div>
+          <div class="row"><label>Fringe edges</label><input type="checkbox" id="cFringe" checked></div>
+        </div>
+        <div class="group">
+          <h2>Color adjustments</h2>
+          <div class="row"><label>Contrast</label><input type="range" id="rContrast" min="-100" max="100" value="0"></div>
+          <div class="row"><label>Warmth</label><input type="range" id="rWarmth" min="-100" max="100" value="0"></div>
+          <div class="row"><label>Hue shift</label><input type="range" id="rHue" min="-180" max="180" value="0"></div>
+          <div class="row"><label>Saturation</label><input type="range" id="rSaturation" min="0" max="200" value="100"></div>
+          <div class="hint">Applied as a final pass over the whole render, after any material layer.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    Prototype for step 3 of the pattern-gen roadmap: proving a softer, ref-aligned rendering model on top of the
+    existing goal-timeline data before the model switcher and full control panel get built.
+  </footer>
+</div>
+
+<script>
+// ---------- DATA (same as germany_goal_pattern.html) ----------
+const MATCHES = [
+  {id:"POL", gender:"women", opponent:"Poland", date:"2025-07-04", duration:90,
+   goals:[{m:52,s:0,team:"GER"},{m:66,s:0,team:"GER"}]},
+  {id:"DEN", gender:"women", opponent:"Denmark", date:"2025-07-08", duration:90,
+   goals:[{m:26,s:0,team:"OPP"},{m:53,s:0,team:"GER"},{m:66,s:0,team:"GER"}]},
+  {id:"SWE", gender:"women", opponent:"Sweden", date:"2025-07-12", duration:90,
+   goals:[{m:7,s:0,team:"GER"},{m:12,s:0,team:"OPP"},{m:25,s:0,team:"OPP"},{m:34,s:0,team:"OPP"},{m:80,s:0,team:"OPP"}]},
+  {id:"FRA", gender:"women", opponent:"France", date:"2025-07-19", duration:120,
+   goals:[{m:15,s:0,team:"OPP"},{m:25,s:0,team:"GER"}]},
+  {id:"ESP", gender:"women", opponent:"Spain", date:"2025-07-23", duration:120,
+   goals:[{m:113,s:0,team:"OPP"}]},
+  {id:"CUW", gender:"men", opponent:"Curaçao", date:"2026-06-14", duration:90,
+   goals:[{m:6,s:0,team:"GER"},{m:21,s:0,team:"OPP"},{m:38,s:0,team:"GER"},{m:45,s:5,team:"GER"},
+          {m:47,s:0,team:"GER"},{m:68,s:0,team:"GER"},{m:78,s:0,team:"GER"},{m:88,s:0,team:"GER"}]},
+  {id:"CIV", gender:"men", opponent:"Côte d'Ivoire", date:"2026-06-20", duration:90,
+   goals:[{m:30,s:0,team:"OPP"},{m:68,s:0,team:"GER"},{m:90,s:4,team:"GER"}]},
+  {id:"ECU", gender:"men", opponent:"Ecuador", date:"2026-06-25", duration:90,
+   goals:[{m:2,s:0,team:"GER"},{m:9,s:0,team:"OPP"},{m:77,s:0,team:"OPP"}]},
+  {id:"PAR", gender:"men", opponent:"Paraguay", date:"2026-06-29", duration:120,
+   goals:[{m:42,s:0,team:"OPP"},{m:54,s:0,team:"GER"}]},
+];
+
+function buildTimeline(match){
+  let running = 0;
+  const events = [{t:0, margin:0}];
+  match.goals.forEach(g=>{
+    running += (g.team==="GER") ? 1 : -1;
+    events.push({t: g.m + g.s, margin: running, team: g.team});
+  });
+  events.push({t: match.duration, margin: running});
+  return events;
+}
+
+// ---------- COLOR HELPERS ----------
+function hexToRgb(hex){
+  const h = hex.replace('#','');
+  const n = parseInt(h.length===3 ? h.split('').map(c=>c+c).join('') : h, 16);
+  return [(n>>16)&255, (n>>8)&255, n&255];
+}
+function lerp(a,b,t){return a+(b-a)*t;}
+function lerpColor(c1,c2,t){return [lerp(c1[0],c2[0],t),lerp(c1[1],c2[1],t),lerp(c1[2],c2[2],t)];}
+function rgb(c){return `rgb(${c[0]|0},${c[1]|0},${c[2]|0})`;}
+function rgba(c,a){return `rgba(${c[0]|0},${c[1]|0},${c[2]|0},${a})`;}
+
+function hashSeed(str){
+  let h=0;
+  for(let i=0;i<str.length;i++){ h = (h*31 + str.charCodeAt(i)) | 0; }
+  return h % 1000;
+}
+function noise(seed,y){
+  return Math.sin(y*0.014 + seed)*0.6 + Math.sin(y*0.037 + seed*1.31 + 2)*0.4;
+}
+
+function marginToColor(margin, behindRGB, aheadRGB){
+  const v = Math.max(-2, Math.min(2, margin)) / 2; // -1..1
+  const t = (v+1)/2; // 0..1
+  return lerpColor(behindRGB, aheadRGB, t);
+}
+function colorAtTime(timeline, t, behindRGB, aheadRGB){
+  for(let k=0;k<timeline.length-1;k++){
+    const ev = timeline[k], nx = timeline[k+1];
+    if(t>=ev.t && t<=nx.t){
+      const frac = (nx.t-ev.t)===0 ? 0 : (t-ev.t)/(nx.t-ev.t);
+      const cA = marginToColor(ev.margin, behindRGB, aheadRGB);
+      const cB = marginToColor(nx.margin, behindRGB, aheadRGB);
+      return lerpColor(cA, cB, frac);
+    }
+  }
+  return marginToColor(timeline[timeline.length-1].margin, behindRGB, aheadRGB);
+}
+
+// ---------- GRAIN ----------
+let grainCache = null;
+function getGrain(w,h){
+  if(grainCache && grainCache.width===w && grainCache.height===h) return grainCache;
+  const gc = document.createElement('canvas');
+  gc.width = w; gc.height = h;
+  const gx = gc.getContext('2d');
+  const id = gx.createImageData(w,h);
+  for(let i=0;i<id.data.length;i+=4){
+    const v = Math.random()*255;
+    id.data[i]=v; id.data[i+1]=v; id.data[i+2]=v; id.data[i+3]=255;
+  }
+  gx.putImageData(id,0,0);
+  grainCache = gc;
+  return gc;
+}
+
+// ---------- DRAW ----------
+function drawComposition(ctx, W, H, matchset, cfg){
+  const n = matchset.length;
+  const gap = W * 0.014;
+  const colW = (W - gap*(n-1)) / n;
+  const behindRGB = hexToRgb(cfg.behind);
+  const aheadRGB = hexToRgb(cfg.ahead);
+  const goldRGB = hexToRgb(cfg.gold);
+  const crimsonRGB = hexToRgb(cfg.crimson);
+  const spreadPx = (cfg.spread/100) * colW * 1.1;
+
+  const work = document.createElement('canvas');
+  work.width = W; work.height = H;
+  const wctx = work.getContext('2d');
+  wctx.fillStyle = cfg.bg;
+  wctx.fillRect(0,0,W,H);
+
+  matchset.forEach((match,i)=>{
+    const totalGoals = match.goals.length;
+    const heightFrac = 0.42 + 0.058*totalGoals + (match.duration>90? 0.05:0);
+    const colH = H * Math.min(heightFrac, 0.94);
+    const cx = i*(colW+gap);
+    const cy = H - colH;
+    const seed = hashSeed(match.id);
+    const timeline = buildTimeline(match);
+
+    const step = 4;
+    for(let y=cy; y<=H; y+=step){
+      const tFrac = Math.max(0, Math.min(1, (y-cy)/colH));
+      const t = tFrac * match.duration;
+      const col = colorAtTime(timeline, t, behindRGB, aheadRGB);
+      const jitterL = noise(seed, y) * spreadPx;
+      const jitterR = noise(seed+13.7, y) * spreadPx;
+      const x = cx + jitterL*0.5 - (jitterR-jitterL)*0.15;
+      const w = Math.max(colW + (jitterR-jitterL)*0.4, 2);
+      wctx.fillStyle = rgb(col);
+      wctx.fillRect(x, y, w, step+1);
+    }
+
+    // soft goal glows
+    timeline.forEach(ev=>{
+      if(!ev.team) return;
+      const y = cy + (ev.t/match.duration)*colH;
+      const glow = ev.team==="GER" ? goldRGB : crimsonRGB;
+      const r = colW*0.95 + spreadPx*0.35;
+      const cxr = cx + colW/2 + noise(seed+40,y)*spreadPx*0.3;
+      const grad = wctx.createRadialGradient(cxr,y,0, cxr,y,r);
+      grad.addColorStop(0, rgba(glow,0.9));
+      grad.addColorStop(1, rgba(glow,0));
+      wctx.fillStyle = grad;
+      wctx.beginPath();
+      wctx.arc(cxr,y,r,0,Math.PI*2);
+      wctx.fill();
+    });
+  });
+
+  return work;
+}
+
+function stampComposition(ctx, x0, y0, W, H, matchset, cfg){
+  const work = drawComposition(ctx, W, H, matchset, cfg);
+  ctx.save();
+  ctx.filter = `blur(${cfg.blur}px)`;
+  ctx.drawImage(work, x0, y0);
+  ctx.filter = 'none';
+  ctx.restore();
+
+  if(cfg.grain>0){
+    const grain = getGrain(W,H);
+    ctx.save();
+    ctx.globalAlpha = cfg.grain/100;
+    ctx.globalCompositeOperation = 'overlay';
+    ctx.drawImage(grain, x0, y0, W, H);
+    ctx.restore();
+  }
+}
+
+// ---------- RIPPLED GLASS ----------
+function bilinear(data, w, h, x, y){
+  x = Math.max(0, Math.min(w-1.001, x));
+  y = Math.max(0, Math.min(h-1.001, y));
+  const x0 = Math.floor(x), y0 = Math.floor(y), x1 = x0+1, y1 = y0+1;
+  const fx = x-x0, fy = y-y0;
+  const i00 = (y0*w+x0)*4, i10 = (y0*w+x1)*4, i01 = (y1*w+x0)*4, i11 = (y1*w+x1)*4;
+  const out = [0,0,0,0];
+  for(let c=0;c<4;c++){
+    const top = lerp(data[i00+c], data[i10+c], fx);
+    const bot = lerp(data[i01+c], data[i11+c], fx);
+    out[c] = lerp(top, bot, fy);
+  }
+  return out;
+}
+
+function applyGlass(sourceCanvas, cfg){
+  const w = sourceCanvas.width, h = sourceCanvas.height;
+  const sctx = sourceCanvas.getContext('2d');
+  const src = sctx.getImageData(0,0,w,h).data;
+
+  const out = document.createElement('canvas');
+  out.width = w; out.height = h;
+  const octx = out.getContext('2d');
+  const outImg = octx.createImageData(w,h);
+  const od = outImg.data;
+
+  const ribFreq = cfg.ribs * 2*Math.PI / w;
+  const waveFreqY = cfg.waviness * 2*Math.PI / h;
+  const bendAmp = (cfg.bend/100) * 3.2;
+
+  for(let y=0;y<h;y++){
+    for(let x=0;x<w;x++){
+      const bend = bendAmp * Math.sin(y*waveFreqY + x*0.0018);
+      const dx = cfg.ribAmp * Math.sin(x*ribFreq + bend);
+      const dy = cfg.ribAmp * 0.18 * Math.sin(x*ribFreq*0.5 + y*waveFreqY*0.6);
+
+      const rC = bilinear(src, w, h, x+dx+cfg.chroma, y+dy);
+      const gC = bilinear(src, w, h, x+dx, y+dy);
+      const bC = bilinear(src, w, h, x+dx-cfg.chroma, y+dy);
+
+      const idx = (y*w+x)*4;
+      od[idx]   = rC[0];
+      od[idx+1] = gC[1];
+      od[idx+2] = bC[2];
+      od[idx+3] = 255;
+    }
+  }
+  octx.putImageData(outImg,0,0);
+  return out;
+}
+
+// ---------- SLICE DISPLACEMENT ----------
+function seededRandom(seed){
+  const x = Math.sin(seed*9999)*10000;
+  return x - Math.floor(x); // 0..1
+}
+
+function applySliceDisplacement(sourceCanvas, cfg){
+  const w = sourceCanvas.width, h = sourceCanvas.height;
+  const out = document.createElement('canvas');
+  out.width = w; out.height = h;
+  const octx = out.getContext('2d');
+  const n = Math.max(1, cfg.sliceCount);
+
+  if(cfg.sliceOrientation === 'vertical'){
+    const sliceW = w / n;
+    for(let i=0;i<n;i++){
+      const sx = Math.round(i*sliceW);
+      const sw = Math.round((i+1)*sliceW) - sx;
+      const offset = Math.round((seededRandom(i*13.37 + 7)*2 - 1) * cfg.sliceAmount);
+      [offset, offset - h, offset + h].forEach(oy=>{
+        octx.drawImage(sourceCanvas, sx,0, sw,h, sx, oy, sw, h);
+      });
+    }
+  } else {
+    const sliceH = h / n;
+    for(let i=0;i<n;i++){
+      const sy = Math.round(i*sliceH);
+      const sh = Math.round((i+1)*sliceH) - sy;
+      const offset = Math.round((seededRandom(i*13.37 + 7)*2 - 1) * cfg.sliceAmount);
+      [offset, offset - w, offset + w].forEach(ox=>{
+        octx.drawImage(sourceCanvas, 0,sy, w,sh, ox, sy, w, sh);
+      });
+    }
+  }
+  return out;
+}
+
+// ---------- MATERIAL RENDER LAYER ----------
+function drawTileGrout(octx, w, h, cfg){
+  const cols = Math.max(1, cfg.tileCols), rows = Math.max(1, cfg.tileRows);
+  const gw = cfg.groutWidth;
+  octx.save();
+  // shadow side of each grout line, for a little bevel depth
+  octx.strokeStyle = 'rgba(0,0,0,0.35)';
+  octx.lineWidth = gw * 0.5;
+  for(let c=1;c<cols;c++){
+    const x = (w/cols)*c;
+    octx.beginPath(); octx.moveTo(x+gw*0.55,0); octx.lineTo(x+gw*0.55,h); octx.stroke();
+  }
+  for(let r=1;r<rows;r++){
+    const y = (h/rows)*r;
+    octx.beginPath(); octx.moveTo(0,y+gw*0.55); octx.lineTo(w,y+gw*0.55); octx.stroke();
+  }
+  // main grout line
+  octx.strokeStyle = cfg.groutColor;
+  octx.lineWidth = gw;
+  for(let c=1;c<cols;c++){
+    const x = (w/cols)*c;
+    octx.beginPath(); octx.moveTo(x,0); octx.lineTo(x,h); octx.stroke();
+  }
+  for(let r=1;r<rows;r++){
+    const y = (h/rows)*r;
+    octx.beginPath(); octx.moveTo(0,y); octx.lineTo(w,y); octx.stroke();
+  }
+  octx.restore();
+}
+
+function drawRugTexture(octx, w, h, cfg){
+  const density = cfg.pileIntensity/100;
+  if(density>0){
+    const grain = getGrain(w,h);
+    octx.save();
+    octx.globalAlpha = density*0.55;
+    octx.globalCompositeOperation = 'overlay';
+    octx.drawImage(grain,0,0,w,h);
+    octx.restore();
+  }
+  if(cfg.fringe){
+    octx.save();
+    const fringeLen = Math.max(10, h*0.018);
+    const count = Math.round(w/9);
+    octx.strokeStyle = 'rgba(255,255,255,0.55)';
+    octx.lineWidth = 1.4;
+    for(let i=0;i<count;i++){
+      const x = (i+0.5)*(w/count);
+      const jitter = (seededRandom(i*3.31+1)-0.5)*4;
+      octx.beginPath(); octx.moveTo(x, h-1); octx.lineTo(x+jitter, h-1-fringeLen); octx.stroke();
+      octx.beginPath(); octx.moveTo(x, 1); octx.lineTo(x+jitter, 1+fringeLen); octx.stroke();
+    }
+    octx.restore();
+  }
+}
+
+function applyMaterial(sourceCanvas, cfg){
+  if(cfg.material==='none') return sourceCanvas;
+  const w = sourceCanvas.width, h = sourceCanvas.height;
+  const out = document.createElement('canvas');
+  out.width = w; out.height = h;
+  const octx = out.getContext('2d');
+  octx.drawImage(sourceCanvas,0,0);
+  if(cfg.material==='tile') drawTileGrout(octx, w, h, cfg);
+  if(cfg.material==='rug') drawRugTexture(octx, w, h, cfg);
+  return out;
+}
+
+// ---------- COLOR ADJUSTMENTS (contrast / hue / saturation / warmth) ----------
+function applyContrastHueSat(sourceCanvas, cfg){
+  if(cfg.contrast===0 && cfg.hue===0 && cfg.saturation===100) return sourceCanvas;
+  const w = sourceCanvas.width, h = sourceCanvas.height;
+  const out = document.createElement('canvas');
+  out.width = w; out.height = h;
+  const octx = out.getContext('2d');
+  octx.filter = `contrast(${100+cfg.contrast}%) saturate(${cfg.saturation}%) hue-rotate(${cfg.hue}deg)`;
+  octx.drawImage(sourceCanvas,0,0);
+  octx.filter = 'none';
+  return out;
+}
+function clamp255(v){ return Math.max(0, Math.min(255, v)); }
+function applyWarmth(sourceCanvas, cfg){
+  if(cfg.warmth===0) return sourceCanvas;
+  const w = sourceCanvas.width, h = sourceCanvas.height;
+  const sctx = sourceCanvas.getContext('2d');
+  const imgData = sctx.getImageData(0,0,w,h);
+  const d = imgData.data;
+  const amt = cfg.warmth/100; // -1..1, +warm shifts toward red/orange, -warm shifts toward blue
+  const shift = amt*32;
+  for(let i=0;i<d.length;i+=4){
+    d[i]   = clamp255(d[i]   + shift);
+    d[i+2] = clamp255(d[i+2] - shift);
+  }
+  sctx.putImageData(imgData,0,0);
+  return sourceCanvas;
+}
+
+// ---------- UI WIRING ----------
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+let currentSet = "all";
+let currentView = "tile";
+let sliceOrientation = "vertical";
+let currentMaterial = "none";
+
+function filtered(){
+  if(currentSet==="men") return MATCHES.filter(m=>m.gender==="men");
+  if(currentSet==="women") return MATCHES.filter(m=>m.gender==="women");
+  return MATCHES;
+}
+
+function cfgFromUI(){
+  return {
+    bg: document.getElementById('cBg').value,
+    behind: document.getElementById('cBehind').value,
+    ahead: document.getElementById('cAhead').value,
+    gold: document.getElementById('cGold').value,
+    crimson: document.getElementById('cCrimson').value,
+    spread: +document.getElementById('rSpread').value,
+    blur: +document.getElementById('rBlur').value,
+    grain: +document.getElementById('rGrain').value,
+    glass: document.getElementById('cGlass').checked,
+    ribs: +document.getElementById('rRibs').value,
+    ribAmp: +document.getElementById('rRibAmp').value,
+    bend: +document.getElementById('rBend').value,
+    waviness: +document.getElementById('rWaviness').value,
+    chroma: +document.getElementById('rChroma').value,
+    slice: document.getElementById('cSlice').checked,
+    sliceOrientation: sliceOrientation,
+    sliceCount: +document.getElementById('rSliceCount').value,
+    sliceAmount: +document.getElementById('rSliceAmount').value,
+    material: currentMaterial,
+    tileCols: +document.getElementById('rTileCols').value,
+    tileRows: +document.getElementById('rTileRows').value,
+    groutWidth: +document.getElementById('rGroutWidth').value,
+    groutColor: document.getElementById('cGroutColor').value,
+    pileIntensity: +document.getElementById('rPileIntensity').value,
+    fringe: document.getElementById('cFringe').checked,
+    contrast: +document.getElementById('rContrast').value,
+    warmth: +document.getElementById('rWarmth').value,
+    hue: +document.getElementById('rHue').value,
+    saturation: +document.getElementById('rSaturation').value,
+  };
+}
+
+function buildFlat(cfg){
+  const set = filtered();
+  const flat = document.createElement('canvas');
+  flat.width = cv.width; flat.height = cv.height;
+  const fctx = flat.getContext('2d');
+
+  if(currentView==="tile"){
+    fctx.fillStyle = cfg.bg;
+    fctx.fillRect(0,0,flat.width,flat.height);
+    stampComposition(fctx, 0,0, flat.width, flat.height, set, cfg);
+  } else {
+    const tileW = 480, tileH = 640;
+    const off = document.createElement('canvas');
+    off.width = tileW; off.height = tileH;
+    const octx = off.getContext('2d');
+    octx.fillStyle = cfg.bg;
+    octx.fillRect(0,0,tileW,tileH);
+    stampComposition(octx, 0,0, tileW, tileH, set, cfg);
+
+    const cols = Math.ceil(flat.width/tileW)+1;
+    const rows = Math.ceil(flat.height/tileH)+1;
+    fctx.fillStyle = cfg.bg;
+    fctx.fillRect(0,0,flat.width,flat.height);
+    for(let r=0;r<rows;r++){
+      for(let c=0;c<cols;c++){
+        fctx.drawImage(off, c*tileW, r*tileH);
+      }
+    }
+    fctx.strokeStyle = "rgba(255,255,255,0.35)";
+    fctx.lineWidth = 3;
+    for(let c=0;c<=cols;c++){ fctx.beginPath(); fctx.moveTo(c*tileW,0); fctx.lineTo(c*tileW,flat.height); fctx.stroke(); }
+    for(let r=0;r<=rows;r++){ fctx.beginPath(); fctx.moveTo(0,r*tileH); fctx.lineTo(flat.width,r*tileH); fctx.stroke(); }
+  }
+  return flat;
+}
+
+function render(){
+  const cfg = cfgFromUI();
+  const flat = buildFlat(cfg);
+  let result = cfg.glass ? applyGlass(flat, cfg) : flat;
+  if(cfg.slice) result = applySliceDisplacement(result, cfg);
+  result = applyMaterial(result, cfg);
+  result = applyContrastHueSat(result, cfg);
+  result = applyWarmth(result, cfg);
+  ctx.clearRect(0,0,cv.width,cv.height);
+  ctx.drawImage(result,0,0);
+}
+
+document.querySelectorAll('button[data-set]').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('button[data-set]').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    currentSet = b.dataset.set;
+    render();
+  });
+});
+document.querySelectorAll('button[data-view]').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('button[data-view]').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    currentView = b.dataset.view;
+    render();
+  });
+});
+let renderTimer = null;
+function renderDebounced(){
+  clearTimeout(renderTimer);
+  renderTimer = setTimeout(render, 60);
+}
+
+['cBg','cBehind','cAhead','cGold','cCrimson','rSpread','rBlur','rGrain'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', render);
+});
+['cGlass','rRibs','rRibAmp','rBend','rWaviness','rChroma'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', renderDebounced);
+});
+['cSlice','rSliceCount','rSliceAmount'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', render);
+});
+document.querySelectorAll('button[data-orient]').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('button[data-orient]').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    sliceOrientation = b.dataset.orient;
+    render();
+  });
+});
+
+document.querySelectorAll('.tab-btn').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    document.getElementById(b.dataset.tab==='pattern' ? 'tabPattern' : 'tabMaterial').classList.add('active');
+  });
+});
+
+document.querySelectorAll('button[data-material]').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('button[data-material]').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    currentMaterial = b.dataset.material;
+    document.getElementById('groupTile').style.display = currentMaterial==='tile' ? 'block' : 'none';
+    document.getElementById('groupRug').style.display = currentMaterial==='rug' ? 'block' : 'none';
+    render();
+  });
+});
+
+['rTileCols','rTileRows','rGroutWidth','cGroutColor','rPileIntensity','cFringe',
+ 'rContrast','rWarmth','rHue','rSaturation'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', render);
+});
+
+document.getElementById('btnExport').addEventListener('click', ()=>{
+  const ts = new Date().toISOString().replace(/[:.]/g,'-');
+  const link = document.createElement('a');
+  link.download = `goal-pattern-soft_${currentSet}_${currentView}_${ts}.png`;
+  link.href = cv.toDataURL('image/png');
+  link.click();
+});
+
+render();
+</script>
+</body>
+</html>
