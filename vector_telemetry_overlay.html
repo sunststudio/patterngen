@@ -68,7 +68,10 @@
           <label>Seed</label><input type="number" id="nSeed" value="1234">
         </div>
       </div>
-      <button id="btnExport" type="button" class="btn-export">Export SVG</button>
+      <div class="buttons" style="margin-top:16px;">
+        <button id="btnExport" type="button" class="btn-export" style="width:auto;flex:1 1 0;">Export SVG</button>
+        <button id="btnExportPng" type="button" class="btn-export" style="width:auto;flex:1 1 0;">Export PNG</button>
+      </div>
     </div>
 
     <div class="controls-col">
@@ -446,6 +449,29 @@ document.getElementById('btnExport').addEventListener('click', ()=>{
   link.href = url;
   link.click();
   URL.revokeObjectURL(url);
+});
+
+document.getElementById('btnExportPng').addEventListener('click', ()=>{
+  // rasterize the current SVG at 2x for a crisp export, rather than
+  // re-deriving pixels separately from the vector build above
+  const PNG_SCALE = 2;
+  const serializer = new XMLSerializer();
+  const src = serializer.serializeToString(svg);
+  const svg64 = btoa(unescape(encodeURIComponent(src)));
+  const img = new Image();
+  img.onload = ()=>{
+    const canvas = document.createElement('canvas');
+    canvas.width = W*PNG_SCALE;
+    canvas.height = H*PNG_SCALE;
+    const cctx = canvas.getContext('2d');
+    cctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    const ts = new Date().toISOString().replace(/[:.]/g,'-');
+    const link = document.createElement('a');
+    link.download = `vector-telemetry_${ts}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  };
+  img.src = `data:image/svg+xml;base64,${svg64}`;
 });
 
 render();
