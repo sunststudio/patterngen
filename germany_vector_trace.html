@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Germany — Vector Trace (prototype)</title>
+<style>
+  :root{
+    --bg-page:#e4e1d9;
+    --ink:#232320;
+    --paper:#dedad0;
+    --rule:#b9b3a4;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg-page);color:var(--ink);
+    font-family: 'Courier New', ui-monospace, SFMono-Regular, Menlo, monospace;}
+  .wrap{max-width:1180px;margin:0 auto;padding:48px 28px 80px;}
+  header{margin-bottom:28px;border-bottom:1px solid var(--rule);padding-bottom:20px;}
+  h1{font-size:20px;letter-spacing:0.14em;text-transform:uppercase;margin:0 0 8px;font-weight:700;}
+  p.sub{font-size:13px;line-height:1.6;max-width:680px;color:#4d4a43;margin:0;}
+  .layout{display:flex;gap:28px;align-items:flex-start;flex-wrap:wrap;}
+  .stage{flex:1 1 560px;min-width:320px;}
+  .panel{border:1px solid var(--rule);padding:2px;background:var(--paper);}
+  svg{display:block;width:100%;height:auto;background:var(--paper);}
+  .controls-col{flex:0 0 260px;}
+  .group{border:1px solid var(--rule);padding:16px;margin-bottom:16px;background:var(--paper);}
+  .group h2{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;margin:0 0 12px;color:#4d4a43;}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;font-size:11px;}
+  .row:last-child{margin-bottom:0;}
+  .row label{color:#4d4a43;letter-spacing:.03em;}
+  input[type=color]{width:34px;height:24px;border:1px solid var(--ink);padding:0;background:none;cursor:pointer;}
+  input[type=range]{width:130px;}
+  input[type=number]{width:70px;font-family:inherit;font-size:11px;border:1px solid var(--rule);background:transparent;color:var(--ink);padding:3px 5px;}
+  .buttons{display:flex;gap:8px;flex-wrap:wrap;}
+  button{
+    font-family:inherit;font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+    background:transparent;border:1px solid var(--ink);color:var(--ink);
+    padding:7px 12px;cursor:pointer;transition:all .15s ease;
+  }
+  button.active,button:hover{background:var(--ink);color:var(--paper);}
+  .btn-export{
+    display:block;width:100%;margin-top:16px;padding:16px 14px;
+    background:var(--ink);color:var(--paper);border:1px solid var(--ink);
+    font-size:13px;font-weight:700;letter-spacing:.12em;
+  }
+  .btn-export:hover{background:#000;border-color:#000;}
+  footer{margin-top:34px;font-size:10.5px;color:#7a7669;letter-spacing:.03em;line-height:1.7;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Vector Trace (prototype)</h1>
+    <p class="sub">A separate model, not yet tied to match data: organic metaball blobs are rasterized onto a coarse
+    grid and traced into real SVG paths — the grid coarseness is what produces the blocky, stepped edges, and a
+    Chaikin-smoothing pass can round those steps back toward an organic outline. A duotone fill/outline mix plus a
+    technical overlay (crosshairs, halftone, hairlines) sit on top, in the spirit of the vector references.</p>
+  </header>
+
+  <div class="layout">
+    <div class="stage">
+      <div class="panel">
+        <svg id="stage" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 1280"></svg>
+      </div>
+      <div class="buttons" style="margin-top:16px;">
+        <button id="btnRegen" type="button">Regenerate</button>
+        <div class="row" style="margin:0;gap:6px;">
+          <label>Seed</label><input type="number" id="nSeed" value="1234">
+        </div>
+      </div>
+      <button id="btnExport" type="button" class="btn-export">Export SVG</button>
+    </div>
+
+    <div class="controls-col">
+      <div class="group">
+        <h2>Key colors</h2>
+        <div class="row"><label>Field (bg)</label><input type="color" id="cBg" value="#eef0ee"></div>
+        <div class="row"><label>Ink</label><input type="color" id="cInk" value="#1a3ce0"></div>
+      </div>
+      <div class="group">
+        <h2>Blob shape</h2>
+        <div class="row"><label>Blobs</label><input type="range" id="rBlobs" min="1" max="10" value="5"></div>
+        <div class="row"><label>Size</label><input type="range" id="rSize" min="60" max="360" value="190"></div>
+        <div class="row"><label>Spread</label><input type="range" id="rSpread" min="10" max="100" value="65"></div>
+      </div>
+      <div class="group">
+        <h2>Trace</h2>
+        <div class="row"><label>Resolution (blockiness)</label><input type="range" id="rRes" min="8" max="56" value="22"></div>
+        <div class="row"><label>Smoothing</label><input type="range" id="rSmooth" min="0" max="4" value="1"></div>
+        <div class="row"><label>Fill ratio</label><input type="range" id="rFill" min="0" max="100" value="45"></div>
+      </div>
+      <div class="group">
+        <h2>Technical overlay</h2>
+        <div class="row"><label>Crosshairs</label><input type="checkbox" id="cCross" checked></div>
+        <div class="row"><label>· count</label><input type="range" id="rCrossCount" min="0" max="24" value="7"></div>
+        <div class="row"><label>Halftone</label><input type="checkbox" id="cHalf" checked></div>
+        <div class="row"><label>· density</label><input type="range" id="rHalfDensity" min="4" max="20" value="9"></div>
+        <div class="row"><label>Stripe hatch</label><input type="checkbox" id="cHatch"></div>
+        <div class="row"><label>· density</label><input type="range" id="rHatchDensity" min="2" max="20" value="6"></div>
+        <div class="row"><label>Hairlines</label><input type="checkbox" id="cHair" checked></div>
+        <div class="row"><label>· count</label><input type="range" id="rHairCount" min="0" max="8" value="2"></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    Prototype for the abstract vector-shape direction (vector-1.png / vector-2.png references), kept separate from
+    the football-data models. Blob count/size could later be wired to match stats the same way the soft-bloom model
+    reads goal timelines — not done yet here, this is purely a shape generator.
+  </footer>
+</div>
+
+<script>
+const SVG_NS = "http://www.w3.org/2000/svg";
+const svg = document.getElementById('stage');
+const W = 960, H = 1280;
+
+function svgEl(tag, attrs){
+  const el = document.createElementNS(SVG_NS, tag);
+  for(const k in attrs) el.setAttribute(k, attrs[k]);
+  return el;
+}
+
+// ---------- seeded RNG ----------
+function mulberry32(seed){
+  let a = seed;
+  return function(){
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// ---------- metaball field + grid trace ----------
+function buildBlobs(rng, cfg){
+  const blobs = [];
+  const spreadW = W * (cfg.spread/100) * 0.5;
+  const spreadH = H * (cfg.spread/100) * 0.5;
+  for(let i=0;i<cfg.blobs;i++){
+    blobs.push({
+      x: W/2 + (rng()*2-1)*spreadW,
+      y: H/2 + (rng()*2-1)*spreadH,
+      r: cfg.size * (0.55 + rng()*0.9),
+      ang: rng()*Math.PI,
+      stretch: 1 + rng()*1.6,
+    });
+  }
+  return blobs;
+}
+
+function fieldInside(blobs, x, y){
+  let field = 0;
+  for(const b of blobs){
+    const dx = x-b.x, dy = y-b.y;
+    const rx = dx*Math.cos(b.ang) + dy*Math.sin(b.ang);
+    const ry = (-dx*Math.sin(b.ang) + dy*Math.cos(b.ang)) * b.stretch;
+    const d2 = rx*rx + ry*ry;
+    field += (b.r*b.r) / Math.max(d2, 1);
+  }
+  return field > 1.0;
+}
+
+function buildGrid(blobs, cellSize){
+  const gridW = Math.floor(W/cellSize);
+  const gridH = Math.floor(H/cellSize);
+  const inside = [];
+  for(let gy=0; gy<=gridH; gy++){
+    const row = [];
+    for(let gx=0; gx<=gridW; gx++){
+      row.push(fieldInside(blobs, gx*cellSize, gy*cellSize));
+    }
+    inside.push(row);
+  }
+  // cell is "inside" if all 4 corners are inside (conservative, avoids ragged single-corner cells)
+  const cellInside = [];
+  for(let cy=0; cy<gridH; cy++){
+    const row = [];
+    for(let cx=0; cx<gridW; cx++){
+      row.push(inside[cy][cx] && inside[cy][cx+1] && inside[cy+1][cx] && inside[cy+1][cx+1]);
+    }
+    cellInside.push(row);
+  }
+  return {cellInside, gridW, gridH, cellSize};
+}
+
+function traceGrid(grid){
+  const {cellInside, gridW, gridH} = grid;
+  function isInside(cx,cy){
+    return cx>=0 && cy>=0 && cx<gridW && cy<gridH && cellInside[cy][cx];
+  }
+  const next = new Map();
+  function addEdge(p1,p2){ next.set(p1[0]+','+p1[1], p2); }
+  for(let cy=0; cy<gridH; cy++){
+    for(let cx=0; cx<gridW; cx++){
+      if(!isInside(cx,cy)) continue;
+      const tl=[cx,cy], tr=[cx+1,cy], br=[cx+1,cy+1], bl=[cx,cy+1];
+      if(!isInside(cx,cy-1)) addEdge(tl,tr);
+      if(!isInside(cx+1,cy)) addEdge(tr,br);
+      if(!isInside(cx,cy+1)) addEdge(br,bl);
+      if(!isInside(cx-1,cy)) addEdge(bl,tl);
+    }
+  }
+  const visited = new Set();
+  const loops = [];
+  next.forEach((_,k)=>{
+    if(visited.has(k)) return;
+    const loop = [];
+    let curKey = k;
+    let safety = 0;
+    while(!visited.has(curKey) && safety < 20000){
+      visited.add(curKey);
+      const [x,y] = curKey.split(',').map(Number);
+      loop.push([x,y]);
+      const nx = next.get(curKey);
+      if(!nx) break;
+      curKey = nx[0]+','+nx[1];
+      safety++;
+    }
+    if(loop.length >= 3) loops.push(loop);
+  });
+  return loops;
+}
+
+function chaikin(points, iterations){
+  let pts = points;
+  for(let it=0; it<iterations; it++){
+    const next = [];
+    const n = pts.length;
+    for(let i=0;i<n;i++){
+      const p0 = pts[i], p1 = pts[(i+1)%n];
+      next.push([p0[0]*0.75+p1[0]*0.25, p0[1]*0.75+p1[1]*0.25]);
+      next.push([p0[0]*0.25+p1[0]*0.75, p0[1]*0.25+p1[1]*0.75]);
+    }
+    pts = next;
+  }
+  return pts;
+}
+
+function pathFromLoop(loop){
+  let d = `M ${loop[0][0].toFixed(1)} ${loop[0][1].toFixed(1)} `;
+  for(let i=1;i<loop.length;i++) d += `L ${loop[i][0].toFixed(1)} ${loop[i][1].toFixed(1)} `;
+  return d + 'Z';
+}
+
+// ---------- overlay elements ----------
+function addCrosshair(parent, x, y, ink){
+  const len = 14;
+  parent.appendChild(svgEl('line',{x1:x-len/2,y1:y,x2:x+len/2,y2:y,stroke:ink,'stroke-width':1.2,opacity:0.8}));
+  parent.appendChild(svgEl('line',{x1:x,y1:y-len/2,x2:x,y2:y+len/2,stroke:ink,'stroke-width':1.2,opacity:0.8}));
+  const sx = x + 10 + rngGlobal()*10, sy = y - 10 - rngGlobal()*10;
+  parent.appendChild(svgEl('rect',{x:sx-3,y:sy-3,width:6,height:6,fill:'none',stroke:ink,'stroke-width':1,opacity:0.8}));
+}
+
+function addHalftone(parent, rx, ry, rw, rh, spacing, ink, clipId){
+  const g = svgEl('g',{opacity:0.55});
+  if(clipId) g.setAttribute('clip-path', `url(#${clipId})`);
+  for(let y=ry; y<ry+rh; y+=spacing){
+    const rowOffset = (Math.round((y-ry)/spacing) % 2) ? spacing/2 : 0;
+    for(let x=rx+rowOffset; x<rx+rw; x+=spacing){
+      g.appendChild(svgEl('circle',{cx:x,cy:y,r:Math.max(spacing*0.16,0.8),fill:ink}));
+    }
+  }
+  parent.appendChild(g);
+}
+
+function addStripes(parent, rx, ry, rw, rh, spacing, ink, clipId){
+  const g = svgEl('g',{opacity:0.6});
+  if(clipId) g.setAttribute('clip-path', `url(#${clipId})`);
+  for(let x=rx; x<rx+rw; x+=spacing){
+    g.appendChild(svgEl('line',{x1:x,y1:ry,x2:x,y2:ry+rh,stroke:ink,'stroke-width':1}));
+  }
+  parent.appendChild(g);
+}
+
+// ---------- main build ----------
+let rngGlobal = Math.random;
+
+function cfgFromUI(){
+  return {
+    bg: document.getElementById('cBg').value,
+    ink: document.getElementById('cInk').value,
+    blobs: +document.getElementById('rBlobs').value,
+    size: +document.getElementById('rSize').value,
+    spread: +document.getElementById('rSpread').value,
+    res: +document.getElementById('rRes').value,
+    smooth: +document.getElementById('rSmooth').value,
+    fillRatio: +document.getElementById('rFill').value,
+    crossOn: document.getElementById('cCross').checked,
+    crossCount: +document.getElementById('rCrossCount').value,
+    halfOn: document.getElementById('cHalf').checked,
+    halfDensity: +document.getElementById('rHalfDensity').value,
+    hatchOn: document.getElementById('cHatch').checked,
+    hatchDensity: +document.getElementById('rHatchDensity').value,
+    hairOn: document.getElementById('cHair').checked,
+    hairCount: +document.getElementById('rHairCount').value,
+    seed: +document.getElementById('nSeed').value,
+  };
+}
+
+function render(){
+  const cfg = cfgFromUI();
+  const rng = mulberry32(cfg.seed);
+  rngGlobal = rng;
+
+  while(svg.firstChild) svg.removeChild(svg.firstChild);
+  svg.appendChild(svgEl('rect',{x:0,y:0,width:W,height:H,fill:cfg.bg}));
+
+  const blobs = buildBlobs(rng, cfg);
+  const grid = buildGrid(blobs, cfg.res);
+  let loops = traceGrid(grid);
+  loops = loops.map(loop => chaikin(loop.map(p=>[p[0]*cfg.res, p[1]*cfg.res]), cfg.smooth));
+  loops.sort((a,b)=> b.length - a.length);
+
+  const shapeGroup = svgEl('g',{});
+  svg.appendChild(shapeGroup);
+
+  const fillCount = Math.round(loops.length * cfg.fillRatio/100);
+  const defs = svgEl('defs',{});
+  svg.appendChild(defs);
+
+  loops.forEach((loop,i)=>{
+    const d = pathFromLoop(loop);
+    const filled = i < fillCount;
+    const path = svgEl('path',{
+      d,
+      fill: filled ? cfg.ink : 'none',
+      stroke: cfg.ink,
+      'stroke-width': filled ? 0 : 1.4,
+      opacity: filled ? 0.94 : 0.85,
+    });
+    shapeGroup.appendChild(path);
+
+    if(filled && i===0 && (cfg.halfOn || cfg.hatchOn)){
+      const clipId = 'clip'+i;
+      const clip = svgEl('clipPath', {id:clipId});
+      clip.appendChild(svgEl('path',{d}));
+      defs.appendChild(clip);
+      const xs = loop.map(p=>p[0]), ys = loop.map(p=>p[1]);
+      const bx = Math.min(...xs), by = Math.min(...ys);
+      const bw = Math.max(...xs)-bx, bh = Math.max(...ys)-by;
+      if(cfg.halfOn) addHalftone(shapeGroup, bx, by, bw, bh*0.5, cfg.halfDensity, cfg.bg, clipId);
+      if(cfg.hatchOn) addStripes(shapeGroup, bx, by+bh*0.5, bw, bh*0.5, cfg.hatchDensity, cfg.bg, clipId);
+    }
+  });
+
+  const overlay = svgEl('g',{});
+  svg.appendChild(overlay);
+
+  if(cfg.hairOn){
+    for(let i=0;i<cfg.hairCount;i++){
+      if(rng()<0.5){
+        const y = rng()*H;
+        overlay.appendChild(svgEl('line',{x1:0,y1:y,x2:W,y2:y,stroke:cfg.ink,'stroke-width':1,opacity:0.35}));
+      } else {
+        const x = rng()*W;
+        overlay.appendChild(svgEl('line',{x1:x,y1:0,x2:x,y2:H,stroke:cfg.ink,'stroke-width':1,opacity:0.35}));
+      }
+    }
+  }
+  if(cfg.crossOn){
+    for(let i=0;i<cfg.crossCount;i++){
+      addCrosshair(overlay, rng()*W, rng()*H, cfg.ink);
+    }
+  }
+}
+
+// ---------- UI wiring ----------
+let renderTimer = null;
+function renderDebounced(){
+  clearTimeout(renderTimer);
+  renderTimer = setTimeout(render, 50);
+}
+
+document.querySelectorAll('.controls-col input').forEach(el=>{
+  el.addEventListener('input', renderDebounced);
+});
+
+document.getElementById('btnRegen').addEventListener('click', ()=>{
+  document.getElementById('nSeed').value = Math.floor(Math.random()*1000000);
+  render();
+});
+
+document.getElementById('btnExport').addEventListener('click', ()=>{
+  const ts = new Date().toISOString().replace(/[:.]/g,'-');
+  const serializer = new XMLSerializer();
+  const src = serializer.serializeToString(svg);
+  const blob = new Blob([src], {type:'image/svg+xml'});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.download = `vector-trace_${ts}.svg`;
+  link.href = url;
+  link.click();
+  URL.revokeObjectURL(url);
+});
+
+render();
+</script>
+</body>
+</html>
