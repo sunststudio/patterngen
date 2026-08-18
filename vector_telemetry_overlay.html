@@ -108,6 +108,18 @@
         <div class="row"><label>Bullet chance</label><input type="range" id="rBulletChance" min="0" max="100" value="35"></div>
         <div class="row"><label>Timestamp chance</label><input type="range" id="rTsChance" min="0" max="100" value="60"></div>
       </div>
+      <div class="group">
+        <h2>Slice displacement</h2>
+        <div class="row"><label>Enabled</label><input type="checkbox" id="cSlice"></div>
+        <div class="row"><label>Orientation</label>
+          <span class="buttons">
+            <button type="button" data-orient="vertical" class="active">Vertical</button>
+            <button type="button" data-orient="horizontal">Horizontal</button>
+          </span>
+        </div>
+        <div class="row"><label>Slices</label><input type="range" id="rSliceCount" min="2" max="60" value="14"></div>
+        <div class="row"><label>Displacement</label><input type="range" id="rSliceAmount" min="0" max="200" value="40"></div>
+      </div>
     </div>
   </div>
 
@@ -145,6 +157,14 @@ function mulberry32(seed){
   };
 }
 function pick(arr, rng){ return arr[Math.floor(rng()*arr.length)]; }
+
+// fixed (not seed-linked) per-slice offset generator, same formula as
+// goal_pattern_soft.html's slice displacement — a given slice count always
+// produces the same offset pattern regardless of the Seed field.
+function seededRandom(seed){
+  const x = Math.sin(seed*9999)*10000;
+  return x - Math.floor(x);
+}
 
 // ---------- CONTENT (from football-vector-filler-text.md) ----------
 const LOG_LINES = [
@@ -271,6 +291,10 @@ function cfgFromUI(){
     blockSize: +document.getElementById('rBlockSize').value,
     bulletChance: (+document.getElementById('rBulletChance').value)/100,
     tsChance: (+document.getElementById('rTsChance').value)/100,
+    slice: document.getElementById('cSlice').checked,
+    sliceOrientation: sliceOrientation,
+    sliceCount: +document.getElementById('rSliceCount').value,
+    sliceAmount: +document.getElementById('rSliceAmount').value,
     seed: +document.getElementById('nSeed').value,
   };
 }
@@ -283,12 +307,16 @@ function render(){
   while(svg.firstChild) svg.removeChild(svg.firstChild);
   svg.appendChild(svgEl('rect',{x:0, y:0, width:W, height:H, fill:cfg.bg}));
 
+  // all line/mark/text content is built into one detached group so slice
+  // displacement (below) can clip+repeat it without redrawing anything
+  const art = svgEl('g', {});
+
   for(let i=0;i<cfg.bandCount;i++){
     const w = W*(0.18+rng()*0.5);
     const h = H*(0.06+rng()*0.22);
     const x = rng()*(W-w);
     const y = rng()*(H-h);
-    drawHatchBand(svg, x, y, w, h, cfg.bandSpacing, cfg.ink, cfg.bandOpacity);
+    drawHatchBand(art, x, y, w, h, cfg.bandSpacing, cfg.ink, cfg.bandOpacity);
   }
 
   if(cfg.latticeOn){
@@ -297,7 +325,7 @@ function render(){
       const h = H*(0.12+rng()*0.16);
       const x = rng()*(W-w);
       const y = rng()*(H-h);
-      drawDotLattice(svg, x, y, w, h, cfg.latticeSpacing, cfg.ink, cfg.latticeOpacity);
+      drawDotLattice(art, x, y, w, h, cfg.latticeSpacing, cfg.ink, cfg.latticeOpacity);
     }
   }
 
@@ -306,13 +334,13 @@ function render(){
     const y = H*0.05 + rng()*H*0.9;
     const size = cfg.chSize*(0.75+rng()*0.6);
     const label = rng()<cfg.chLabel ? randTagCode(rng) : null;
-    drawCrosshair(svg, x, y, size, cfg.ink, label);
+    drawCrosshair(art, x, y, size, cfg.ink, label);
   }
 
   for(let i=0;i<cfg.tagCount;i++){
     const x = W*0.03 + rng()*W*0.75;
     const y = H*0.04 + rng()*H*0.92;
-    drawInlineTag(svg, x, y, cfg.ink, randTagCode(rng), cfg.tagSize, rng);
+    drawInlineTag(art, x, y, cfg.ink, randTagCode(rng), cfg.tagSize, rng);
   }
 
   for(let i=0;i<cfg.blockCount;i++){
@@ -328,11 +356,61 @@ function render(){
     const blockH = lines.length*lineHeight;
     const x = W*0.03 + rng()*W*0.55;
     const y = H*0.06 + rng()*(H*0.9 - blockH);
-    drawTextBlock(svg, x, y, lines, cfg.ink, cfg.blockSize, cfg.bulletChance, rng);
+    drawTextBlock(art, x, y, lines, cfg.ink, cfg.blockSize, cfg.bulletChance, rng);
+  }
+
+  if(!cfg.slice){
+    svg.appendChild(art);
+    return;
+  }
+
+  // slice displacement: cut the art layer into strips, each shifted by its
+  // own fixed offset with a wraparound copy on either side — the SVG
+  // equivalent of goal_pattern_soft's canvas slice-displacement pass, done
+  // with clipPath + <use> instead of pixel copies so it stays vector/export-safe.
+  const defs = svgEl('defs', {});
+  art.id = 'artLayer';
+  defs.appendChild(art);
+  svg.appendChild(defs);
+
+  const n = Math.max(1, cfg.sliceCount);
+  if(cfg.sliceOrientation === 'vertical'){
+    const sliceW = W/n;
+    for(let i=0;i<n;i++){
+      const sx = Math.round(i*sliceW);
+      const sw = Math.round((i+1)*sliceW) - sx;
+      const offset = Math.round((seededRandom(i*13.37+7)*2-1) * cfg.sliceAmount);
+      const clipId = `sliceClip${i}`;
+      const clip = svgEl('clipPath', {id:clipId});
+      clip.appendChild(svgEl('rect',{x:sx, y:0, width:sw, height:H}));
+      defs.appendChild(clip);
+      const g = svgEl('g', {'clip-path':`url(#${clipId})`});
+      [offset, offset-H, offset+H].forEach(oy=>{
+        g.appendChild(svgEl('use', {href:'#artLayer', transform:`translate(0,${oy})`}));
+      });
+      svg.appendChild(g);
+    }
+  } else {
+    const sliceH = H/n;
+    for(let i=0;i<n;i++){
+      const sy = Math.round(i*sliceH);
+      const sh = Math.round((i+1)*sliceH) - sy;
+      const offset = Math.round((seededRandom(i*13.37+7)*2-1) * cfg.sliceAmount);
+      const clipId = `sliceClip${i}`;
+      const clip = svgEl('clipPath', {id:clipId});
+      clip.appendChild(svgEl('rect',{x:0, y:sy, width:W, height:sh}));
+      defs.appendChild(clip);
+      const g = svgEl('g', {'clip-path':`url(#${clipId})`});
+      [offset, offset-W, offset+W].forEach(ox=>{
+        g.appendChild(svgEl('use', {href:'#artLayer', transform:`translate(${ox},0)`}));
+      });
+      svg.appendChild(g);
+    }
   }
 }
 
 // ---------- UI WIRING ----------
+let sliceOrientation = "vertical";
 let renderTimer = null;
 function renderDebounced(){
   clearTimeout(renderTimer);
@@ -341,6 +419,15 @@ function renderDebounced(){
 
 document.querySelectorAll('.controls-col input, #nSeed').forEach(el=>{
   el.addEventListener('input', renderDebounced);
+});
+
+document.querySelectorAll('button[data-orient]').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('button[data-orient]').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    sliceOrientation = b.dataset.orient;
+    render();
+  });
 });
 
 document.getElementById('btnRegen').addEventListener('click', ()=>{
