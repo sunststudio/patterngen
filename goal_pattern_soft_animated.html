@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Germany — Soft Bloom Pattern (prototype)</title>
+<title>Germany — Soft Bloom, Animated (prototype)</title>
 <style>
   :root{
     --bg-page:#e4e1d9;
@@ -29,6 +29,7 @@
   .row label{color:#4d4a43;letter-spacing:.03em;}
   input[type=color]{width:34px;height:24px;border:1px solid var(--ink);padding:0;background:none;cursor:pointer;}
   input[type=range]{width:130px;}
+  input[type=number]{width:70px;font-family:inherit;font-size:11px;border:1px solid var(--rule);background:transparent;color:var(--ink);padding:3px 5px;}
   .buttons{display:flex;gap:8px;flex-wrap:wrap;}
   button{
     font-family:inherit;font-size:11px;letter-spacing:.06em;text-transform:uppercase;
@@ -36,6 +37,7 @@
     padding:7px 12px;cursor:pointer;transition:all .15s ease;
   }
   button.active,button:hover{background:var(--ink);color:var(--paper);}
+  #btnPlay{width:100%;margin-bottom:12px;}
   .btn-export{
     display:block;width:100%;margin-top:16px;padding:16px 14px;
     background:var(--ink);color:var(--paper);border:1px solid var(--ink);
@@ -48,10 +50,14 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>Goal Rhythm — Soft Bloom (prototype)</h1>
-    <p class="sub">Same match data and column logic as the original tool, rendered through a different model: wavy
-    organic column edges, a whole-composition blur pass, and a grain overlay — aiming at the softness/bleed in the
-    reference tiles rather than a crisp bar chart. Colors and spread are exposed as controls to test that direction early.</p>
+    <h1>Goal Rhythm — Soft Bloom, Animated (prototype)</h1>
+    <p class="sub">Same rendering pipeline as goal_pattern_soft.html (column fill, soft blooms, rippled glass,
+    slice displacement), but the goal-timeline data feeding it is replaced with a continuously flowing procedural
+    field — column color and edge wobble drift from layered sine phases advancing in real time, and the goal
+    "blooms" become independent glow blobs that rise, drift and fade on their own slow loops. Match records are
+    kept only as structural seeds (column count/height/character) via the All / Men / Women split — the content
+    itself is no longer literal score data. Key colors, Density/Spread, Rippled glass and Slice displacement stay
+    manual, exactly as in the static tool; only the "data" driving the column fill is now animated.</p>
   </header>
 
   <div class="layout">
@@ -70,6 +76,17 @@
     </div>
 
     <div class="controls-col">
+      <div class="group">
+        <h2>Motion</h2>
+        <button id="btnPlay" type="button" class="active">Pause</button>
+        <div class="row"><label>Speed</label><input type="range" id="rSpeed" min="5" max="150" value="30"></div>
+        <div class="row"><label>Flow scale</label><input type="range" id="rFlowScale" min="40" max="220" value="110"></div>
+        <div class="row"><label>Blooms</label><input type="range" id="rBlobCount" min="0" max="20" value="8"></div>
+        <div class="row"><label>Seed</label><input type="number" id="nSeed" value="1234"></div>
+        <div class="buttons">
+          <button id="btnRegen" type="button">Regenerate</button>
+        </div>
+      </div>
       <div class="group">
         <h2>Key colors</h2>
         <div class="row"><label>Field (bg)</label><input type="color" id="cBg" value="#FB1EEF"></div>
@@ -109,13 +126,20 @@
   </div>
 
   <footer>
-    Prototype for step 3 of the pattern-gen roadmap: proving a softer, ref-aligned rendering model on top of the
-    existing goal-timeline data before the model switcher and full control panel get built.
+    Prototype for an animated / motion-graphic direction on top of goal_pattern_soft.html. The composition is
+    re-rendered at a reduced working resolution while playing (rippled glass is a per-pixel pass, too slow to
+    run at full res every frame) and upscaled onto the visible canvas; pausing or exporting always does one
+    full-resolution pass, so paused frames and PNG exports stay crisp.
   </footer>
 </div>
 
 <script>
-// ---------- DATA (same as germany_goal_pattern.html) ----------
+const SVG_NS_UNUSED = null; // (no SVG in this tool; canvas only)
+
+// ---------- STRUCTURAL DATA ----------
+// No longer plotted literally — goals/duration only seed each column's height and
+// character (via hashSeed), so the All/Men/Women split still gives three distinct
+// compositions. The actual visual content comes from the animated flow field below.
 const MATCHES = [
   {id:"POL", gender:"women", opponent:"Poland", date:"2025-07-04", duration:90,
    goals:[{m:52,s:0,team:"GER"},{m:66,s:0,team:"GER"}]},
@@ -138,17 +162,6 @@ const MATCHES = [
    goals:[{m:42,s:0,team:"OPP"},{m:54,s:0,team:"GER"}]},
 ];
 
-function buildTimeline(match){
-  let running = 0;
-  const events = [{t:0, margin:0}];
-  match.goals.forEach(g=>{
-    running += (g.team==="GER") ? 1 : -1;
-    events.push({t: g.m + g.s, margin: running, team: g.team});
-  });
-  events.push({t: match.duration, margin: running});
-  return events;
-}
-
 // ---------- COLOR HELPERS ----------
 function hexToRgb(hex){
   const h = hex.replace('#','');
@@ -165,26 +178,35 @@ function hashSeed(str){
   for(let i=0;i<str.length;i++){ h = (h*31 + str.charCodeAt(i)) | 0; }
   return h % 1000;
 }
-function noise(seed,y){
-  return Math.sin(y*0.014 + seed)*0.6 + Math.sin(y*0.037 + seed*1.31 + 2)*0.4;
+
+// ---------- seeded RNG (for bloom layout) ----------
+function mulberry32(seed){
+  let a = seed;
+  return function(){
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }
 
-function marginToColor(margin, behindRGB, aheadRGB){
-  const v = Math.max(-2, Math.min(2, margin)) / 2; // -1..1
-  const t = (v+1)/2; // 0..1
-  return lerpColor(behindRGB, aheadRGB, t);
+// ---------- FLOWING FIELD (replaces the static goal-timeline lookup) ----------
+// Layered sine phases at a few unrelated frequencies, each with its own slow time
+// drift — cheap, seamless, and (because it's a sum of smooth periodics rather than
+// re-rolled randomness) never jumps frame to frame, which is what keeps the motion
+// reading as a lava-lamp drift instead of noise/flicker.
+// speedNorm ~= 0.67 at the default Speed slider value (30/45); a speedNorm of 1
+// makes the field's fastest layer complete a full cycle roughly every 7 seconds.
+function flowValue(seed, y, t, flowScale, speedNorm){
+  const f = 100 / Math.max(40, flowScale);
+  const v = Math.sin(y*0.010*f + seed + t*0.90*speedNorm)*0.5
+          + Math.sin(y*0.023*f - seed*1.7 + t*0.55*speedNorm + 2)*0.3
+          + Math.sin(y*0.006*f + seed*0.5 + t*0.22*speedNorm + 4)*0.25;
+  return Math.max(-1, Math.min(1, v));
 }
-function colorAtTime(timeline, t, behindRGB, aheadRGB){
-  for(let k=0;k<timeline.length-1;k++){
-    const ev = timeline[k], nx = timeline[k+1];
-    if(t>=ev.t && t<=nx.t){
-      const frac = (nx.t-ev.t)===0 ? 0 : (t-ev.t)/(nx.t-ev.t);
-      const cA = marginToColor(ev.margin, behindRGB, aheadRGB);
-      const cB = marginToColor(nx.margin, behindRGB, aheadRGB);
-      return lerpColor(cA, cB, frac);
-    }
-  }
-  return marginToColor(timeline[timeline.length-1].margin, behindRGB, aheadRGB);
+function noiseT(seed, y, t, flowScale, speedNorm){
+  const f = 100 / Math.max(40, flowScale);
+  return Math.sin(y*0.014*f + seed + t*0.40*speedNorm)*0.6 + Math.sin(y*0.037*f + seed*1.31 + 2 + t*0.18*speedNorm)*0.4;
 }
 
 // ---------- GRAIN ----------
@@ -204,16 +226,27 @@ function getGrain(w,h){
   return gc;
 }
 
-// ---------- DRAW ----------
-function drawComposition(ctx, W, H, matchset, cfg){
+// ---------- COLUMN GEOMETRY ----------
+function computeColumns(W, H, matchset){
   const n = matchset.length;
   const gap = W * 0.014;
   const colW = (W - gap*(n-1)) / n;
+  return matchset.map((match,i)=>{
+    const totalGoals = match.goals.length;
+    const heightFrac = 0.42 + 0.058*totalGoals + (match.duration>90 ? 0.05 : 0);
+    const colH = H * Math.min(heightFrac, 0.94);
+    return { match, cx: i*(colW+gap), cy: H-colH, colW, colH, seed: hashSeed(match.id) };
+  });
+}
+
+// ---------- DRAW ----------
+function drawComposition(W, H, matchset, cfg, animT){
   const behindRGB = hexToRgb(cfg.behind);
   const aheadRGB = hexToRgb(cfg.ahead);
   const goldRGB = hexToRgb(cfg.gold);
   const crimsonRGB = hexToRgb(cfg.crimson);
-  const spreadPx = (cfg.spread/100) * colW * 1.1;
+  const cols = computeColumns(W, H, matchset);
+  const spreadPx = (cfg.spread/100) * (cols[0] ? cols[0].colW : W) * 1.1;
 
   const work = document.createElement('canvas');
   work.width = W; work.height = H;
@@ -221,50 +254,48 @@ function drawComposition(ctx, W, H, matchset, cfg){
   wctx.fillStyle = cfg.bg;
   wctx.fillRect(0,0,W,H);
 
-  matchset.forEach((match,i)=>{
-    const totalGoals = match.goals.length;
-    const heightFrac = 0.42 + 0.058*totalGoals + (match.duration>90? 0.05:0);
-    const colH = H * Math.min(heightFrac, 0.94);
-    const cx = i*(colW+gap);
+  cols.forEach(col=>{
+    const breathe = 1 + 0.03*Math.sin(animT*0.20*cfg.speedNorm + col.seed);
+    const colH = col.colH * breathe;
     const cy = H - colH;
-    const seed = hashSeed(match.id);
-    const timeline = buildTimeline(match);
-
     const step = 4;
     for(let y=cy; y<=H; y+=step){
-      const tFrac = Math.max(0, Math.min(1, (y-cy)/colH));
-      const t = tFrac * match.duration;
-      const col = colorAtTime(timeline, t, behindRGB, aheadRGB);
-      const jitterL = noise(seed, y) * spreadPx;
-      const jitterR = noise(seed+13.7, y) * spreadPx;
-      const x = cx + jitterL*0.5 - (jitterR-jitterL)*0.15;
-      const w = Math.max(colW + (jitterR-jitterL)*0.4, 2);
-      wctx.fillStyle = rgb(col);
+      const flow = flowValue(col.seed + cfg.seedOffset, y, animT, cfg.flowScale, cfg.speedNorm);
+      const c = lerpColor(behindRGB, aheadRGB, (flow+1)/2);
+      const jitterL = noiseT(col.seed, y, animT, cfg.flowScale, cfg.speedNorm) * spreadPx;
+      const jitterR = noiseT(col.seed+13.7, y, animT, cfg.flowScale, cfg.speedNorm) * spreadPx;
+      const x = col.cx + jitterL*0.5 - (jitterR-jitterL)*0.15;
+      const w = Math.max(col.colW + (jitterR-jitterL)*0.4, 2);
+      wctx.fillStyle = rgb(c);
       wctx.fillRect(x, y, w, step+1);
     }
+  });
 
-    // soft goal glows
-    timeline.forEach(ev=>{
-      if(!ev.team) return;
-      const y = cy + (ev.t/match.duration)*colH;
-      const glow = ev.team==="GER" ? goldRGB : crimsonRGB;
-      const r = colW*0.95 + spreadPx*0.35;
-      const cxr = cx + colW/2 + noise(seed+40,y)*spreadPx*0.3;
-      const grad = wctx.createRadialGradient(cxr,y,0, cxr,y,r);
-      grad.addColorStop(0, rgba(glow,0.9));
-      grad.addColorStop(1, rgba(glow,0));
-      wctx.fillStyle = grad;
-      wctx.beginPath();
-      wctx.arc(cxr,y,r,0,Math.PI*2);
-      wctx.fill();
-    });
+  cfg.blobs.forEach(b=>{
+    const col = cols[b.col % cols.length];
+    if(!col) return;
+    const s = cfg.speedNorm;
+    const yFrac = Math.max(0, Math.min(1, b.baseY + b.ampY*Math.sin(animT*0.35*s*b.spdY + b.phaseY)));
+    const y = col.cy + col.colH*yFrac;
+    const x = col.cx + col.colW/2 + spreadPx*b.ampX*Math.sin(animT*0.28*s*b.spdX + b.phaseX);
+    const pulse = (Math.sin(animT*0.30*s*b.spdA + b.phaseA)+1)/2;
+    const alpha = 0.18 + 0.68*pulse;
+    const r = (col.colW*0.85 + spreadPx*0.3) * b.radiusMult;
+    const glow = b.team==="GER" ? goldRGB : crimsonRGB;
+    const grad = wctx.createRadialGradient(x,y,0, x,y,r);
+    grad.addColorStop(0, rgba(glow,alpha));
+    grad.addColorStop(1, rgba(glow,0));
+    wctx.fillStyle = grad;
+    wctx.beginPath();
+    wctx.arc(x,y,r,0,Math.PI*2);
+    wctx.fill();
   });
 
   return work;
 }
 
-function stampComposition(ctx, x0, y0, W, H, matchset, cfg){
-  const work = drawComposition(ctx, W, H, matchset, cfg);
+function stampComposition(ctx, x0, y0, W, H, matchset, cfg, animT){
+  const work = drawComposition(W, H, matchset, cfg, animT);
   ctx.save();
   ctx.filter = `blur(${cfg.blur}px)`;
   ctx.drawImage(work, x0, y0);
@@ -383,7 +414,34 @@ function filtered(){
   return MATCHES;
 }
 
+// ---------- BLOOM LAYOUT ----------
+let blobs = [];
+function rebuildBlobs(){
+  const seed = +document.getElementById('nSeed').value || 1;
+  const count = +document.getElementById('rBlobCount').value;
+  const n = Math.max(1, filtered().length);
+  const rng = mulberry32(seed*2654435761 >>> 0);
+  blobs = [];
+  for(let i=0;i<count;i++){
+    blobs.push({
+      col: Math.floor(rng()*n),
+      baseY: 0.15 + rng()*0.7,
+      ampY: 0.12 + rng()*0.28,
+      ampX: 0.4 + rng()*1.1,
+      phaseX: rng()*Math.PI*2,
+      phaseY: rng()*Math.PI*2,
+      phaseA: rng()*Math.PI*2,
+      spdX: 0.6 + rng()*0.8,
+      spdY: 0.6 + rng()*0.8,
+      spdA: 0.5 + rng()*0.9,
+      radiusMult: 0.7 + rng()*0.7,
+      team: rng()<0.5 ? "GER" : "OPP",
+    });
+  }
+}
+
 function cfgFromUI(){
+  const seed = +document.getElementById('nSeed').value || 1;
   return {
     bg: document.getElementById('cBg').value,
     behind: document.getElementById('cBehind').value,
@@ -403,60 +461,131 @@ function cfgFromUI(){
     sliceOrientation: sliceOrientation,
     sliceCount: +document.getElementById('rSliceCount').value,
     sliceAmount: +document.getElementById('rSliceAmount').value,
+    speed: +document.getElementById('rSpeed').value,
+    speedNorm: (+document.getElementById('rSpeed').value) / 45,
+    flowScale: +document.getElementById('rFlowScale').value,
+    seedOffset: seed * 0.0131,
+    blobs: blobs,
   };
 }
 
-function buildFlat(cfg){
+function buildFlat(cfg, animT, scale){
   const set = filtered();
+  const W = Math.max(2, Math.round(cv.width*scale));
+  const H = Math.max(2, Math.round(cv.height*scale));
   const flat = document.createElement('canvas');
-  flat.width = cv.width; flat.height = cv.height;
+  flat.width = W; flat.height = H;
   const fctx = flat.getContext('2d');
 
   if(currentView==="tile"){
     fctx.fillStyle = cfg.bg;
-    fctx.fillRect(0,0,flat.width,flat.height);
-    stampComposition(fctx, 0,0, flat.width, flat.height, set, cfg);
+    fctx.fillRect(0,0,W,H);
+    stampComposition(fctx, 0,0, W, H, set, cfg, animT);
   } else {
-    const tileW = 480, tileH = 640;
+    const tileW = Math.round(480*scale), tileH = Math.round(640*scale);
     const off = document.createElement('canvas');
     off.width = tileW; off.height = tileH;
     const octx = off.getContext('2d');
     octx.fillStyle = cfg.bg;
     octx.fillRect(0,0,tileW,tileH);
-    stampComposition(octx, 0,0, tileW, tileH, set, cfg);
+    stampComposition(octx, 0,0, tileW, tileH, set, cfg, animT);
 
-    const cols = Math.ceil(flat.width/tileW)+1;
-    const rows = Math.ceil(flat.height/tileH)+1;
+    const cols = Math.ceil(W/tileW)+1;
+    const rows = Math.ceil(H/tileH)+1;
     fctx.fillStyle = cfg.bg;
-    fctx.fillRect(0,0,flat.width,flat.height);
+    fctx.fillRect(0,0,W,H);
     for(let r=0;r<rows;r++){
       for(let c=0;c<cols;c++){
         fctx.drawImage(off, c*tileW, r*tileH);
       }
     }
     fctx.strokeStyle = "rgba(255,255,255,0.35)";
-    fctx.lineWidth = 3;
-    for(let c=0;c<=cols;c++){ fctx.beginPath(); fctx.moveTo(c*tileW,0); fctx.lineTo(c*tileW,flat.height); fctx.stroke(); }
-    for(let r=0;r<=rows;r++){ fctx.beginPath(); fctx.moveTo(0,r*tileH); fctx.lineTo(flat.width,r*tileH); fctx.stroke(); }
+    fctx.lineWidth = Math.max(1, 3*scale);
+    for(let c=0;c<=cols;c++){ fctx.beginPath(); fctx.moveTo(c*tileW,0); fctx.lineTo(c*tileW,H); fctx.stroke(); }
+    for(let r=0;r<=rows;r++){ fctx.beginPath(); fctx.moveTo(0,r*tileH); fctx.lineTo(W,r*tileH); fctx.stroke(); }
   }
   return flat;
 }
 
-function render(){
+function renderAt(animT, scale){
   const cfg = cfgFromUI();
-  const flat = buildFlat(cfg);
+  const flat = buildFlat(cfg, animT, scale);
   let result = cfg.glass ? applyGlass(flat, cfg) : flat;
   if(cfg.slice) result = applySliceDisplacement(result, cfg);
   ctx.clearRect(0,0,cv.width,cv.height);
-  ctx.drawImage(result,0,0);
+  ctx.drawImage(result, 0,0, result.width, result.height, 0,0, cv.width, cv.height);
 }
+
+// ---------- ANIMATION LOOP ----------
+const PLAY_SCALE = 0.55;     // working-resolution scale while animating (perf)
+const RENDER_INTERVAL_MS = 66; // ~15fps render cadence; motion itself is time-based, not frame-based
+let playing = true;
+let animT = 0;
+let lastTS = null;
+let lastRenderTS = 0;
+let rafHandle = null;
+
+function tick(ts){
+  if(!playing) return;
+  if(lastTS===null) lastTS = ts;
+  const dt = Math.min(0.25, (ts-lastTS)/1000);
+  lastTS = ts;
+  animT += dt;
+  if(ts - lastRenderTS >= RENDER_INTERVAL_MS){
+    lastRenderTS = ts;
+    renderAt(animT, PLAY_SCALE);
+  }
+  rafHandle = requestAnimationFrame(tick);
+}
+
+function play(){
+  if(playing) return;
+  playing = true;
+  lastTS = null;
+  document.getElementById('btnPlay').textContent = 'Pause';
+  document.getElementById('btnPlay').classList.add('active');
+  rafHandle = requestAnimationFrame(tick);
+}
+function pause(){
+  if(!playing) return;
+  playing = false;
+  if(rafHandle) cancelAnimationFrame(rafHandle);
+  document.getElementById('btnPlay').textContent = 'Play';
+  document.getElementById('btnPlay').classList.remove('active');
+  renderAt(animT, 1.0); // crisp frozen frame
+}
+
+function renderNow(){
+  // used by manual control changes: instant full-res redraw while paused,
+  // otherwise a no-op — the running loop already picks up the new values.
+  if(!playing) renderAt(animT, 1.0);
+}
+
+document.getElementById('btnPlay').addEventListener('click', ()=>{
+  if(playing) pause(); else play();
+});
+
+document.getElementById('btnRegen').addEventListener('click', ()=>{
+  document.getElementById('nSeed').value = Math.floor(Math.random()*1000000);
+  rebuildBlobs();
+  renderNow();
+});
+
+['nSeed','rBlobCount'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', ()=>{ rebuildBlobs(); renderNow(); });
+});
+['rSpeed','rFlowScale','cBg','cBehind','cAhead','cGold','cCrimson','rSpread','rBlur','rGrain',
+ 'cGlass','rRibs','rRibAmp','rBend','rWaviness','rChroma','cSlice','rSliceCount','rSliceAmount'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', renderNow);
+});
 
 document.querySelectorAll('button[data-set]').forEach(b=>{
   b.addEventListener('click',()=>{
     document.querySelectorAll('button[data-set]').forEach(x=>x.classList.remove('active'));
     b.classList.add('active');
     currentSet = b.dataset.set;
-    render();
+    rebuildBlobs();
+    renderNow();
   });
 });
 document.querySelectorAll('button[data-view]').forEach(b=>{
@@ -464,42 +593,32 @@ document.querySelectorAll('button[data-view]').forEach(b=>{
     document.querySelectorAll('button[data-view]').forEach(x=>x.classList.remove('active'));
     b.classList.add('active');
     currentView = b.dataset.view;
-    render();
+    renderNow();
   });
-});
-let renderTimer = null;
-function renderDebounced(){
-  clearTimeout(renderTimer);
-  renderTimer = setTimeout(render, 60);
-}
-
-['cBg','cBehind','cAhead','cGold','cCrimson','rSpread','rBlur','rGrain'].forEach(id=>{
-  document.getElementById(id).addEventListener('input', render);
-});
-['cGlass','rRibs','rRibAmp','rBend','rWaviness','rChroma'].forEach(id=>{
-  document.getElementById(id).addEventListener('input', renderDebounced);
-});
-['cSlice','rSliceCount','rSliceAmount'].forEach(id=>{
-  document.getElementById(id).addEventListener('input', render);
 });
 document.querySelectorAll('button[data-orient]').forEach(b=>{
   b.addEventListener('click',()=>{
     document.querySelectorAll('button[data-orient]').forEach(x=>x.classList.remove('active'));
     b.classList.add('active');
     sliceOrientation = b.dataset.orient;
-    render();
+    renderNow();
   });
 });
 
 document.getElementById('btnExport').addEventListener('click', ()=>{
+  const wasPlaying = playing;
+  if(wasPlaying) pause();
+  renderAt(animT, 1.0);
   const ts = new Date().toISOString().replace(/[:.]/g,'-');
   const link = document.createElement('a');
-  link.download = `goal-pattern-soft_${currentSet}_${currentView}_${ts}.png`;
+  link.download = `goal-pattern-soft-animated_${currentSet}_${currentView}_${ts}.png`;
   link.href = cv.toDataURL('image/png');
   link.click();
+  if(wasPlaying) play();
 });
 
-render();
+rebuildBlobs();
+rafHandle = requestAnimationFrame(tick);
 </script>
 </body>
 </html>
