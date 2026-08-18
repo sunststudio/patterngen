@@ -221,10 +221,17 @@ function drawComposition(ctx, W, H, matchset, cfg){
   wctx.fillStyle = cfg.bg;
   wctx.fillRect(0,0,W,H);
 
+  // Height is stretched across the full min..max range of the current match
+  // set (rather than a fixed formula) so column height stays visually varied
+  // regardless of which subset (All/Men/Women) is picked.
+  const scoreOf = m => m.goals.length + (m.duration>90 ? 1.6 : 0);
+  const scores = matchset.map(scoreOf);
+  const scoreMin = Math.min(...scores), scoreRange = Math.max(...scores) - scoreMin;
+
   matchset.forEach((match,i)=>{
-    const totalGoals = match.goals.length;
-    const heightFrac = 0.42 + 0.058*totalGoals + (match.duration>90? 0.05:0);
-    const colH = H * Math.min(heightFrac, 0.94);
+    const norm = scoreRange>0 ? (scoreOf(match)-scoreMin)/scoreRange : 0.5;
+    const heightFrac = 0.40 + norm*0.54;
+    const colH = H * heightFrac;
     const cx = i*(colW+gap);
     const cy = H - colH;
     const seed = hashSeed(match.id);

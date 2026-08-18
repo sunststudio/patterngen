@@ -79,7 +79,7 @@
       <div class="group">
         <h2>Motion</h2>
         <button id="btnPlay" type="button" class="active">Pause</button>
-        <div class="row"><label>Speed</label><input type="range" id="rSpeed" min="5" max="150" value="30"></div>
+        <div class="row"><label>Speed</label><input type="range" id="rSpeed" min="5" max="400" value="30"></div>
         <div class="row"><label>Flow scale</label><input type="range" id="rFlowScale" min="40" max="220" value="110"></div>
         <div class="row"><label>Blooms</label><input type="range" id="rBlobCount" min="0" max="20" value="8"></div>
         <div class="row"><label>Seed</label><input type="number" id="nSeed" value="1234"></div>
@@ -227,14 +227,20 @@ function getGrain(w,h){
 }
 
 // ---------- COLUMN GEOMETRY ----------
+// Height is stretched across the full min..max range of the current match set
+// (rather than a fixed formula) so column height stays visually varied
+// regardless of which subset (All/Men/Women) is picked.
 function computeColumns(W, H, matchset){
   const n = matchset.length;
   const gap = W * 0.014;
   const colW = (W - gap*(n-1)) / n;
+  const scoreOf = m => m.goals.length + (m.duration>90 ? 1.6 : 0);
+  const scores = matchset.map(scoreOf);
+  const scoreMin = Math.min(...scores), scoreRange = Math.max(...scores) - scoreMin;
   return matchset.map((match,i)=>{
-    const totalGoals = match.goals.length;
-    const heightFrac = 0.42 + 0.058*totalGoals + (match.duration>90 ? 0.05 : 0);
-    const colH = H * Math.min(heightFrac, 0.94);
+    const norm = scoreRange>0 ? (scoreOf(match)-scoreMin)/scoreRange : 0.5;
+    const heightFrac = 0.40 + norm*0.54;
+    const colH = H * heightFrac;
     return { match, cx: i*(colW+gap), cy: H-colH, colW, colH, seed: hashSeed(match.id) };
   });
 }
@@ -518,7 +524,7 @@ function renderAt(animT, scale){
 
 // ---------- ANIMATION LOOP ----------
 const PLAY_SCALE = 0.55;     // working-resolution scale while animating (perf)
-const RENDER_INTERVAL_MS = 66; // ~15fps render cadence; motion itself is time-based, not frame-based
+const RENDER_INTERVAL_MS = 45; // ~22fps render cadence; motion itself is time-based, not frame-based
 let playing = true;
 let animT = 0;
 let lastTS = null;
