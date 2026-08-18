@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Vector Telemetry Overlay (prototype)</title>
+<style>
+  :root{
+    --bg-page:#e4e1d9;
+    --ink:#232320;
+    --paper:#dedad0;
+    --rule:#b9b3a4;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg-page);color:var(--ink);
+    font-family: 'Courier New', ui-monospace, SFMono-Regular, Menlo, monospace;}
+  .wrap{max-width:1180px;margin:0 auto;padding:48px 28px 80px;}
+  header{margin-bottom:28px;border-bottom:1px solid var(--rule);padding-bottom:20px;}
+  h1{font-size:20px;letter-spacing:0.14em;text-transform:uppercase;margin:0 0 8px;font-weight:700;}
+  p.sub{font-size:13px;line-height:1.6;max-width:680px;color:#4d4a43;margin:0;}
+  .layout{display:flex;gap:28px;align-items:flex-start;flex-wrap:wrap;}
+  .stage{flex:1 1 560px;min-width:320px;}
+  .panel{border:1px solid var(--rule);padding:2px;background:var(--paper);}
+  svg{display:block;width:100%;height:auto;background:var(--paper);}
+  .controls-col{flex:0 0 260px;}
+  .group{border:1px solid var(--rule);padding:16px;margin-bottom:16px;background:var(--paper);}
+  .group h2{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;margin:0 0 12px;color:#4d4a43;}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;font-size:11px;}
+  .row:last-child{margin-bottom:0;}
+  .row label{color:#4d4a43;letter-spacing:.03em;}
+  input[type=color]{width:34px;height:24px;border:1px solid var(--ink);padding:0;background:none;cursor:pointer;}
+  input[type=range]{width:130px;}
+  input[type=number]{width:70px;font-family:inherit;font-size:11px;border:1px solid var(--rule);background:transparent;color:var(--ink);padding:3px 5px;}
+  .buttons{display:flex;gap:8px;flex-wrap:wrap;}
+  button{
+    font-family:inherit;font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+    background:transparent;border:1px solid var(--ink);color:var(--ink);
+    padding:7px 12px;cursor:pointer;transition:all .15s ease;
+  }
+  button.active,button:hover{background:var(--ink);color:var(--paper);}
+  .btn-export{
+    display:block;width:100%;margin-top:16px;padding:16px 14px;
+    background:var(--ink);color:var(--paper);border:1px solid var(--ink);
+    font-size:13px;font-weight:700;letter-spacing:.12em;
+  }
+  .btn-export:hover{background:#000;border-color:#000;}
+  footer{margin-top:34px;font-size:10.5px;color:#7a7669;letter-spacing:.03em;line-height:1.7;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Vector Telemetry Overlay (prototype)</h1>
+    <p class="sub">Reads vector-2.png as three layers rather than the whole picture: vertical hairline hatch
+    bands, crosshair/tag marks, and monospace "smallprint" readouts. The large black silhouette shapes in the
+    reference are deliberately left out for now — this prototype is only about the line/mark/text texture on top.
+    Readout content is pulled from football-vector-filler-text.md (GPS/EPTS, xG/possession, VAR calibration,
+    ball-chip telemetry); short tag codes next to crosshairs are procedurally generated in the same style.</p>
+  </header>
+
+  <div class="layout">
+    <div class="stage">
+      <div class="panel">
+        <svg id="stage" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 1280"></svg>
+      </div>
+      <div class="buttons" style="margin-top:16px;">
+        <button id="btnRegen" type="button">Regenerate</button>
+        <div class="row" style="margin:0;gap:6px;">
+          <label>Seed</label><input type="number" id="nSeed" value="1234">
+        </div>
+      </div>
+      <button id="btnExport" type="button" class="btn-export">Export SVG</button>
+    </div>
+
+    <div class="controls-col">
+      <div class="group">
+        <h2>Key colors</h2>
+        <div class="row"><label>Field (bg)</label><input type="color" id="cBg" value="#FFFFFF"></div>
+        <div class="row"><label>Ink</label><input type="color" id="cInk" value="#0A0A0A"></div>
+      </div>
+      <div class="group">
+        <h2>Hairline bands</h2>
+        <div class="row"><label>Bands</label><input type="range" id="rBandCount" min="0" max="10" value="4"></div>
+        <div class="row"><label>Line spacing</label><input type="range" id="rBandSpacing" min="2" max="10" value="4"></div>
+        <div class="row"><label>Opacity</label><input type="range" id="rBandOpacity" min="10" max="100" value="85"></div>
+      </div>
+      <div class="group">
+        <h2>Dot lattice</h2>
+        <div class="row"><label>Enabled</label><input type="checkbox" id="cLattice" checked></div>
+        <div class="row"><label>Blocks</label><input type="range" id="rLatticeCount" min="1" max="4" value="1"></div>
+        <div class="row"><label>Density</label><input type="range" id="rLatticeSpacing" min="4" max="20" value="8"></div>
+        <div class="row"><label>Opacity</label><input type="range" id="rLatticeOpacity" min="10" max="100" value="70"></div>
+      </div>
+      <div class="group">
+        <h2>Crosshairs</h2>
+        <div class="row"><label>Count</label><input type="range" id="rChCount" min="0" max="14" value="5"></div>
+        <div class="row"><label>Size</label><input type="range" id="rChSize" min="12" max="48" value="24"></div>
+        <div class="row"><label>Label chance</label><input type="range" id="rChLabel" min="0" max="100" value="70"></div>
+      </div>
+      <div class="group">
+        <h2>Tags (inline)</h2>
+        <div class="row"><label>Count</label><input type="range" id="rTagCount" min="0" max="40" value="16"></div>
+        <div class="row"><label>Font size</label><input type="range" id="rTagSize" min="8" max="16" value="11"></div>
+      </div>
+      <div class="group">
+        <h2>Smallprint</h2>
+        <div class="row"><label>Blocks</label><input type="range" id="rBlockCount" min="0" max="8" value="4"></div>
+        <div class="row"><label>Font size</label><input type="range" id="rBlockSize" min="8" max="14" value="10"></div>
+        <div class="row"><label>Bullet chance</label><input type="range" id="rBulletChance" min="0" max="100" value="35"></div>
+        <div class="row"><label>Timestamp chance</label><input type="range" id="rTsChance" min="0" max="100" value="60"></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    Prototype for the line/crossmark/smallprint direction on top of vector-2.png. Silhouette shapes (the blob
+    tracing in germany_vector_trace.html) are a separate layer, intentionally not composited here yet.
+  </footer>
+</div>
+
+<script>
+const SVG_NS = "http://www.w3.org/2000/svg";
+const svg = document.getElementById('stage');
+const W = 960, H = 1280;
+const MONO = '"Courier New", ui-monospace, SFMono-Regular, Menlo, monospace';
+
+function svgEl(tag, attrs){
+  const el = document.createElementNS(SVG_NS, tag);
+  for(const k in attrs) el.setAttribute(k, attrs[k]);
+  return el;
+}
+function textEl(x, y, str, fontSize, fill){
+  const t = svgEl('text', {x, y, 'font-family':MONO, 'font-size':fontSize, fill});
+  t.textContent = str;
+  return t;
+}
+
+// ---------- seeded RNG ----------
+function mulberry32(seed){
+  let a = seed;
+  return function(){
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function pick(arr, rng){ return arr[Math.floor(rng()*arr.length)]; }
+
+// ---------- CONTENT (from football-vector-filler-text.md) ----------
+const LOG_LINES = [
+  "SPRINT.DIST 847M","TOP.SPEED 34.2KM/H","HEART.RATE 178BPM","ZONE::HIGH-INTENSITY","PLAYER-ID Δ07",
+  "xG 0.34","POSS 61%","PASS.ACC 87.2%","TOUCH.COUNT 94","SEQUENCE BROKEN",
+  "OFFSIDE.LINE CALC","FRAME 00847","CAM-ID 12B","MARGIN 4.3CM","REVIEW:: IN PROGRESS",
+  "ZONE 14","HALF-SPACE.R","THIRD::FINAL","CORRIDOR C",
+  "SUBSTITUTION PENDING","VAR REVIEW ACTIVE","SIGNAL LOST — CH.4","STOPPAGE.TIME +4:32","CARD ISSUED — Y",
+  "BALL-ID CB2026-04","IMU.SYNC OK","IMPACT.FORCE 340N","TRAJECTORY LOGGED",
+];
+
+// short tag codes for crosshairs / inline tags — generated in the same
+// register as the md's field values (Δ07, 12B, CB2026-04...), not literal
+// copies, since the reference needs many more short codes than the md has.
+function randTagCode(rng){
+  const letter = ()=> String.fromCharCode(65 + Math.floor(rng()*26));
+  const patterns = [
+    ()=> `${Math.floor(rng()*90+10)}-${Math.floor(rng()*900+100)}`,
+    ()=> `${Math.floor(rng()*9+1)}${letter()}`,
+    ()=> `Δ${String(Math.floor(rng()*40)).padStart(2,'0')}`,
+    ()=> `${Math.floor(rng()*900+100)}-${Math.floor(rng()*90+10)}-${Math.floor(rng()*9+1)}`,
+    ()=> `${Math.floor(rng()*900+100)}.${letter()}${letter()}${letter()}${letter()}`,
+  ];
+  return pick(patterns, rng)();
+}
+function randTimestamp(rng){
+  const m = Math.floor(rng()*95), s = Math.floor(rng()*60);
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}:`;
+}
+
+// ---------- BULLET ICONS ----------
+function drawBullet(parent, x, yBase, size, ink, type){
+  if(type==='square-filled'){
+    parent.appendChild(svgEl('rect',{x, y:yBase-size, width:size, height:size, fill:ink}));
+  } else if(type==='square-hollow'){
+    parent.appendChild(svgEl('rect',{x, y:yBase-size, width:size, height:size, fill:'none', stroke:ink, 'stroke-width':1}));
+  } else if(type==='dot'){
+    parent.appendChild(svgEl('circle',{cx:x+size/2, cy:yBase-size/2, r:size/2, fill:ink}));
+  } else { // bracket
+    parent.appendChild(svgEl('path',{d:`M ${x} ${yBase-size} L ${x} ${yBase} L ${x+size} ${yBase}`, stroke:ink, 'stroke-width':1, fill:'none'}));
+  }
+}
+const BULLET_TYPES = ['square-filled','square-hollow','dot','bracket'];
+
+// ---------- ELEMENT BUILDERS ----------
+function drawHatchBand(parent, x, y, w, h, spacing, ink, opacity){
+  const g = svgEl('g', {opacity});
+  for(let lx=x; lx<x+w; lx+=spacing){
+    g.appendChild(svgEl('line',{x1:lx, y1:y, x2:lx, y2:y+h, stroke:ink, 'stroke-width':1}));
+  }
+  parent.appendChild(g);
+}
+
+function drawDotLattice(parent, x, y, w, h, spacing, ink, opacity){
+  const g = svgEl('g', {opacity});
+  let row = 0;
+  for(let ly=y; ly<y+h; ly+=spacing){
+    const offset = (row%2) ? spacing/2 : 0;
+    for(let lx=x+offset; lx<x+w; lx+=spacing){
+      g.appendChild(svgEl('rect',{x:lx-1, y:ly-1, width:2, height:2, fill:ink}));
+    }
+    row++;
+  }
+  parent.appendChild(g);
+}
+
+function drawCrosshair(parent, x, y, size, ink, label){
+  const g = svgEl('g', {});
+  g.appendChild(svgEl('line',{x1:x-size/2, y1:y, x2:x+size/2, y2:y, stroke:ink, 'stroke-width':1.4}));
+  g.appendChild(svgEl('line',{x1:x, y1:y-size/2, x2:x, y2:y+size/2, stroke:ink, 'stroke-width':1.4}));
+  const sq = Math.max(3, size*0.16);
+  g.appendChild(svgEl('rect',{x:x+size*0.30, y:y-size*0.30-sq/2, width:sq, height:sq, fill:'none', stroke:ink, 'stroke-width':1}));
+  if(label){
+    const fs = Math.max(9, size*0.42);
+    const t = textEl(x, y+size*0.62+fs, label, fs, ink);
+    t.setAttribute('text-anchor','middle');
+    g.appendChild(t);
+  }
+  parent.appendChild(g);
+}
+
+function drawInlineTag(parent, x, y, ink, label, fontSize, rng){
+  const bs = fontSize*0.7;
+  drawBullet(parent, x, y, bs, ink, pick(BULLET_TYPES, rng));
+  parent.appendChild(textEl(x+bs+4, y, label, fontSize, ink));
+}
+
+function drawTextBlock(parent, x, y, lines, ink, fontSize, bulletChance, rng){
+  const lineHeight = fontSize*1.55;
+  lines.forEach((line, i)=>{
+    const ly = y + i*lineHeight;
+    let lx = x;
+    if(line.header){
+      parent.appendChild(textEl(lx, ly, line.text, fontSize, ink));
+      return;
+    }
+    if(rng() < bulletChance){
+      const bs = fontSize*0.55;
+      drawBullet(parent, x, ly, bs, ink, pick(BULLET_TYPES, rng));
+      lx = x + bs + 5;
+    }
+    parent.appendChild(textEl(lx, ly, line.text, fontSize, ink));
+  });
+}
+
+// ---------- MAIN BUILD ----------
+function cfgFromUI(){
+  return {
+    bg: document.getElementById('cBg').value,
+    ink: document.getElementById('cInk').value,
+    bandCount: +document.getElementById('rBandCount').value,
+    bandSpacing: +document.getElementById('rBandSpacing').value,
+    bandOpacity: (+document.getElementById('rBandOpacity').value)/100,
+    latticeOn: document.getElementById('cLattice').checked,
+    latticeCount: +document.getElementById('rLatticeCount').value,
+    latticeSpacing: +document.getElementById('rLatticeSpacing').value,
+    latticeOpacity: (+document.getElementById('rLatticeOpacity').value)/100,
+    chCount: +document.getElementById('rChCount').value,
+    chSize: +document.getElementById('rChSize').value,
+    chLabel: (+document.getElementById('rChLabel').value)/100,
+    tagCount: +document.getElementById('rTagCount').value,
+    tagSize: +document.getElementById('rTagSize').value,
+    blockCount: +document.getElementById('rBlockCount').value,
+    blockSize: +document.getElementById('rBlockSize').value,
+    bulletChance: (+document.getElementById('rBulletChance').value)/100,
+    tsChance: (+document.getElementById('rTsChance').value)/100,
+    seed: +document.getElementById('nSeed').value,
+  };
+}
+
+function render(){
+  const cfg = cfgFromUI();
+  const rng = mulberry32(cfg.seed);
+
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  while(svg.firstChild) svg.removeChild(svg.firstChild);
+  svg.appendChild(svgEl('rect',{x:0, y:0, width:W, height:H, fill:cfg.bg}));
+
+  for(let i=0;i<cfg.bandCount;i++){
+    const w = W*(0.18+rng()*0.5);
+    const h = H*(0.06+rng()*0.22);
+    const x = rng()*(W-w);
+    const y = rng()*(H-h);
+    drawHatchBand(svg, x, y, w, h, cfg.bandSpacing, cfg.ink, cfg.bandOpacity);
+  }
+
+  if(cfg.latticeOn){
+    for(let i=0;i<cfg.latticeCount;i++){
+      const w = W*(0.12+rng()*0.16);
+      const h = H*(0.12+rng()*0.16);
+      const x = rng()*(W-w);
+      const y = rng()*(H-h);
+      drawDotLattice(svg, x, y, w, h, cfg.latticeSpacing, cfg.ink, cfg.latticeOpacity);
+    }
+  }
+
+  for(let i=0;i<cfg.chCount;i++){
+    const x = W*0.05 + rng()*W*0.9;
+    const y = H*0.05 + rng()*H*0.9;
+    const size = cfg.chSize*(0.75+rng()*0.6);
+    const label = rng()<cfg.chLabel ? randTagCode(rng) : null;
+    drawCrosshair(svg, x, y, size, cfg.ink, label);
+  }
+
+  for(let i=0;i<cfg.tagCount;i++){
+    const x = W*0.03 + rng()*W*0.75;
+    const y = H*0.04 + rng()*H*0.92;
+    drawInlineTag(svg, x, y, cfg.ink, randTagCode(rng), cfg.tagSize, rng);
+  }
+
+  for(let i=0;i<cfg.blockCount;i++){
+    const lineCount = 2 + Math.floor(rng()*4);
+    const lines = [];
+    if(rng() < cfg.tsChance){
+      lines.push({header:true, text: randTimestamp(rng)});
+    }
+    for(let k=0;k<lineCount;k++){
+      lines.push({header:false, text: pick(LOG_LINES, rng)});
+    }
+    const lineHeight = cfg.blockSize*1.55;
+    const blockH = lines.length*lineHeight;
+    const x = W*0.03 + rng()*W*0.55;
+    const y = H*0.06 + rng()*(H*0.9 - blockH);
+    drawTextBlock(svg, x, y, lines, cfg.ink, cfg.blockSize, cfg.bulletChance, rng);
+  }
+}
+
+// ---------- UI WIRING ----------
+let renderTimer = null;
+function renderDebounced(){
+  clearTimeout(renderTimer);
+  renderTimer = setTimeout(render, 30);
+}
+
+document.querySelectorAll('.controls-col input, #nSeed').forEach(el=>{
+  el.addEventListener('input', renderDebounced);
+});
+
+document.getElementById('btnRegen').addEventListener('click', ()=>{
+  document.getElementById('nSeed').value = Math.floor(Math.random()*1000000);
+  render();
+});
+
+document.getElementById('btnExport').addEventListener('click', ()=>{
+  const ts = new Date().toISOString().replace(/[:.]/g,'-');
+  const serializer = new XMLSerializer();
+  const src = serializer.serializeToString(svg);
+  const blob = new Blob([src], {type:'image/svg+xml'});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.download = `vector-telemetry_${ts}.svg`;
+  link.href = url;
+  link.click();
+  URL.revokeObjectURL(url);
+});
+
+render();
+</script>
+</body>
+</html>
