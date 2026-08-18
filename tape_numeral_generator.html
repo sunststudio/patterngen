@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tape Numerals (prototype)</title>
+<style>
+  :root{
+    --bg-page:#e4e1d9;
+    --ink:#232320;
+    --paper:#dedad0;
+    --rule:#b9b3a4;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg-page);color:var(--ink);
+    font-family: 'Courier New', ui-monospace, SFMono-Regular, Menlo, monospace;}
+  .wrap{max-width:1180px;margin:0 auto;padding:48px 28px 80px;}
+  header{margin-bottom:28px;border-bottom:1px solid var(--rule);padding-bottom:20px;}
+  h1{font-size:20px;letter-spacing:0.14em;text-transform:uppercase;margin:0 0 8px;font-weight:700;}
+  p.sub{font-size:13px;line-height:1.6;max-width:680px;color:#4d4a43;margin:0;}
+  .layout{display:flex;gap:28px;align-items:flex-start;flex-wrap:wrap;}
+  .stage{flex:1 1 560px;min-width:320px;}
+  .panel{border:1px solid var(--rule);padding:2px;background:var(--paper);}
+  svg{display:block;width:100%;height:auto;background:var(--paper);}
+  .controls-col{flex:0 0 260px;}
+  .group{border:1px solid var(--rule);padding:16px;margin-bottom:16px;background:var(--paper);}
+  .group h2{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;margin:0 0 12px;color:#4d4a43;}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;font-size:11px;}
+  .row:last-child{margin-bottom:0;}
+  .row label{color:#4d4a43;letter-spacing:.03em;}
+  input[type=color]{width:34px;height:24px;border:1px solid var(--ink);padding:0;background:none;cursor:pointer;}
+  input[type=range]{width:130px;}
+  input[type=number]{width:70px;font-family:inherit;font-size:11px;border:1px solid var(--rule);background:transparent;color:var(--ink);padding:3px 5px;}
+  .buttons{display:flex;gap:8px;flex-wrap:wrap;}
+  button{
+    font-family:inherit;font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+    background:transparent;border:1px solid var(--ink);color:var(--ink);
+    padding:7px 12px;cursor:pointer;transition:all .15s ease;
+  }
+  button.active,button:hover{background:var(--ink);color:var(--paper);}
+  .btn-export{
+    display:block;width:100%;margin-top:16px;padding:16px 14px;
+    background:var(--ink);color:var(--paper);border:1px solid var(--ink);
+    font-size:13px;font-weight:700;letter-spacing:.12em;
+  }
+  .btn-export:hover{background:#000;border-color:#000;}
+  footer{margin-top:34px;font-size:10.5px;color:#7a7669;letter-spacing:.03em;line-height:1.7;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Tape Numerals (prototype)</h1>
+    <p class="sub">Two-digit numbers (01–99) built from a 7-segment layout, each segment drawn as its own
+    rectangular block. At zero drift the blocks butt together at clean 90° joins (tape-1.png). Turning up
+    position/angle drift nudges and rotates every block independently around its own center, so joins gap,
+    overlap and go slightly off-square — the look of tape actually stuck down by hand (tape-2.png). The
+    <strong>Counter</strong> slider opens up a real hollow between the left/right verticals, so 0/6/8/9 read as
+    holes rather than fused blobs — 0 keeps the chunky fused look, higher values trade a bit of that bluntness
+    for legibility.</p>
+  </header>
+
+  <div class="layout">
+    <div class="stage">
+      <div class="panel">
+        <svg id="stage" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 900"></svg>
+      </div>
+      <div class="buttons" style="margin-top:16px;">
+        <button id="btnRegen" type="button">Regenerate</button>
+        <div class="row" style="margin:0;gap:6px;">
+          <label>Seed</label><input type="number" id="nSeed" value="1234">
+        </div>
+      </div>
+      <button id="btnExport" type="button" class="btn-export">Export SVG</button>
+    </div>
+
+    <div class="controls-col">
+      <div class="group">
+        <h2>Key colors</h2>
+        <div class="row"><label>Field (bg)</label><input type="color" id="cBg" value="#eeece6"></div>
+        <div class="row"><label>Tape</label><input type="color" id="cColor" value="#ff17d6"></div>
+      </div>
+      <div class="group">
+        <h2>Number</h2>
+        <div class="row"><label>Value (01–99)</label><input type="number" id="nNumber" min="1" max="99" value="35"></div>
+      </div>
+      <div class="group">
+        <h2>Digit shape</h2>
+        <div class="row"><label>Weight</label><input type="range" id="rWeight" min="28" max="64" value="44"></div>
+        <div class="row"><label>Gap</label><input type="range" id="rGap" min="8" max="80" value="48"></div>
+        <div class="row"><label>Counter</label><input type="range" id="rCounter" min="0" max="140" value="55"></div>
+        <div class="buttons">
+          <button id="btnAbstract" type="button">Abstract</button>
+          <button id="btnLegible" type="button">Legible</button>
+        </div>
+      </div>
+      <div class="group">
+        <h2>Placement drift</h2>
+        <div class="row"><label>Position</label><input type="range" id="rPos" min="0" max="24" value="7"></div>
+        <div class="row"><label>Angle</label><input type="range" id="rAngle" min="0" max="12" step="0.5" value="3"></div>
+        <div class="buttons">
+          <button id="btnAligned" type="button">Aligned</button>
+          <button id="btnHandApplied" type="button">Hand-applied</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    Prototype for the tape-numeral direction (tape-1.png / tape-2.png references). Segment on/off per digit
+    follows a standard 7-segment table; drift is deterministic per seed, so re-rendering with the same seed at a
+    different drift amount scales the same block-by-block wobble up or down rather than reshuffling it.
+  </footer>
+</div>
+
+<script>
+const SVG_NS = "http://www.w3.org/2000/svg";
+const svg = document.getElementById('stage');
+
+function svgEl(tag, attrs){
+  const el = document.createElementNS(SVG_NS, tag);
+  for(const k in attrs) el.setAttribute(k, attrs[k]);
+  return el;
+}
+
+// ---------- seeded RNG ----------
+function mulberry32(seed){
+  let a = seed;
+  return function(){
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// ---------- 7-segment layout, in units of the block "weight" (t) ----------
+// Verticals are always 1t wide; "k" (counter) is the extra gap opened up between
+// the left/right verticals so 0/6/8/9 get a real hollow instead of just butting
+// together. Digit bounding box is (2+k)t wide x 7.2t tall.
+const UPPER_V_H = 1.3, MID_H = 1, LOWER_V_H = 2.9;
+const DIGIT_UNIT_H = 1 + UPPER_V_H + MID_H + LOWER_V_H + 1; // 7.2
+
+function buildSeg(k){
+  const w = 2 + k;
+  return {
+    A: {x:0,   y:0,               w:w, h:1},         // top bar
+    F: {x:0,   y:1,               w:1, h:UPPER_V_H},  // top-left vertical
+    B: {x:1+k, y:1,               w:1, h:UPPER_V_H},  // top-right vertical
+    G: {x:0,   y:1+UPPER_V_H,     w:w, h:MID_H},       // middle bar
+    E: {x:0,   y:1+UPPER_V_H+MID_H, w:1, h:LOWER_V_H}, // bottom-left vertical
+    C: {x:1+k, y:1+UPPER_V_H+MID_H, w:1, h:LOWER_V_H}, // bottom-right vertical
+    D: {x:0,   y:1+UPPER_V_H+MID_H+LOWER_V_H, w:w, h:1}, // bottom bar
+  };
+}
+
+const DIGIT_SEGMENTS = {
+  '0':['A','B','C','D','E','F'],
+  '1':['B','C'],
+  '2':['A','B','G','E','D'],
+  '3':['A','B','G','C','D'],
+  '4':['F','G','B','C'],
+  '5':['A','F','G','C','D'],
+  '6':['A','F','G','E','D','C'],
+  '7':['A','B','C'],
+  '8':['A','B','C','D','E','F','G'],
+  '9':['A','B','C','D','F','G'],
+};
+
+function cfgFromUI(){
+  return {
+    bg: document.getElementById('cBg').value,
+    color: document.getElementById('cColor').value,
+    number: Math.min(99, Math.max(1, +document.getElementById('nNumber').value || 1)),
+    weight: +document.getElementById('rWeight').value,
+    gap: +document.getElementById('rGap').value,
+    counter: +document.getElementById('rCounter').value / 100,
+    pos: +document.getElementById('rPos').value,
+    angle: +document.getElementById('rAngle').value,
+    seed: +document.getElementById('nSeed').value,
+  };
+}
+
+function render(){
+  const cfg = cfgFromUI();
+  const rng = mulberry32(cfg.seed);
+  const t = cfg.weight;
+  const str = String(cfg.number).padStart(2,'0');
+  const SEG = buildSeg(cfg.counter);
+
+  const digitW = (2 + cfg.counter) * t;
+  const digitH = DIGIT_UNIT_H * t;
+  const pad = Math.max(30, cfg.pos*3 + 20);
+  const W = digitW*2 + cfg.gap + pad*2;
+  const H = digitH + pad*2;
+
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  while(svg.firstChild) svg.removeChild(svg.firstChild);
+  svg.appendChild(svgEl('rect',{x:0,y:0,width:W,height:H,fill:cfg.bg}));
+
+  const group = svgEl('g',{transform:`translate(${pad},${pad})`});
+  svg.appendChild(group);
+
+  str.split('').forEach((ch,di)=>{
+    const segs = DIGIT_SEGMENTS[ch] || [];
+    const offsetX = di*(digitW + cfg.gap);
+    segs.forEach(id=>{
+      const s = SEG[id];
+      const x = offsetX + s.x*t;
+      const y = s.y*t;
+      const w = s.w*t;
+      const h = s.h*t;
+      const cx = x + w/2, cy = y + h/2;
+      const dx = (rng()*2-1) * cfg.pos;
+      const dy = (rng()*2-1) * cfg.pos;
+      const rot = (rng()*2-1) * cfg.angle;
+      group.appendChild(svgEl('rect',{
+        x, y, width:w, height:h, fill:cfg.color,
+        transform:`translate(${dx.toFixed(2)},${dy.toFixed(2)}) rotate(${rot.toFixed(2)} ${cx.toFixed(2)} ${cy.toFixed(2)})`,
+      }));
+    });
+  });
+}
+
+// ---------- UI wiring ----------
+let renderTimer = null;
+function renderDebounced(){
+  clearTimeout(renderTimer);
+  renderTimer = setTimeout(render, 30);
+}
+
+document.querySelectorAll('.controls-col input, #nSeed').forEach(el=>{
+  el.addEventListener('input', renderDebounced);
+});
+
+document.getElementById('btnRegen').addEventListener('click', ()=>{
+  document.getElementById('nSeed').value = Math.floor(Math.random()*1000000);
+  render();
+});
+
+document.getElementById('btnAbstract').addEventListener('click', ()=>{
+  document.getElementById('rCounter').value = 0;
+  render();
+});
+
+document.getElementById('btnLegible').addEventListener('click', ()=>{
+  document.getElementById('rCounter').value = 90;
+  render();
+});
+
+document.getElementById('btnAligned').addEventListener('click', ()=>{
+  document.getElementById('rPos').value = 0;
+  document.getElementById('rAngle').value = 0;
+  render();
+});
+
+document.getElementById('btnHandApplied').addEventListener('click', ()=>{
+  document.getElementById('rPos').value = 7;
+  document.getElementById('rAngle').value = 3;
+  render();
+});
+
+document.getElementById('btnExport').addEventListener('click', ()=>{
+  const ts = new Date().toISOString().replace(/[:.]/g,'-');
+  const serializer = new XMLSerializer();
+  const src = serializer.serializeToString(svg);
+  const blob = new Blob([src], {type:'image/svg+xml'});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.download = `tape-numeral_${ts}.svg`;
+  link.href = url;
+  link.click();
+  URL.revokeObjectURL(url);
+});
+
+render();
+</script>
+</body>
+</html>
