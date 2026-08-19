@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Patterngen</title>
+<style>
+  :root{
+    --bg-page:#e4e1d9;
+    --ink:#232320;
+    --paper:#dedad0;
+    --rule:#b9b3a4;
+    --sidebar-w:260px;
+    --topbar-h:52px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;background:var(--bg-page);color:var(--ink);
+    font-family:'Courier New', ui-monospace, SFMono-Regular, Menlo, monospace;}
+  a{color:inherit;}
+
+  .shell{display:flex;min-height:100vh;}
+
+  /* ---------- sidebar ---------- */
+  .sidebar{
+    flex:0 0 var(--sidebar-w);width:var(--sidebar-w);
+    border-right:1px solid var(--rule);background:var(--paper);
+    display:flex;flex-direction:column;
+    position:sticky;top:0;height:100vh;overflow-y:auto;
+  }
+  .brand{padding:22px 20px 16px;border-bottom:1px solid var(--rule);}
+  .brand a{display:block;text-decoration:none;}
+  .brand h1{font-size:15px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 4px;font-weight:700;}
+  .brand p{font-size:10.5px;letter-spacing:.03em;color:#7a7669;margin:0;}
+
+  .nav-groups{padding:14px 0 24px;flex:1;}
+  .nav-group{margin-bottom:18px;}
+  .nav-group h2{
+    font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#7a7669;
+    margin:0;padding:4px 20px;
+  }
+  .nav-link{
+    display:block;padding:8px 20px 8px 24px;font-size:12px;letter-spacing:.02em;
+    text-decoration:none;color:var(--ink);border-left:2px solid transparent;
+    line-height:1.4;
+  }
+  .nav-link:hover{background:rgba(35,35,32,0.06);}
+  .nav-link.active{border-left-color:var(--ink);background:rgba(35,35,32,0.08);font-weight:700;}
+
+  .sidebar-foot{padding:14px 20px 18px;border-top:1px solid var(--rule);font-size:10px;color:#7a7669;line-height:1.6;}
+
+  /* ---------- topbar (mobile) ---------- */
+  .topbar{display:none;}
+
+  /* ---------- main stage ---------- */
+  .stage-wrap{flex:1;min-width:0;position:relative;}
+  #frame{display:none;width:100%;height:100vh;border:0;background:var(--bg-page);}
+
+  #home{padding:48px 40px 80px;max-width:1080px;}
+  #home header{margin-bottom:32px;border-bottom:1px solid var(--rule);padding-bottom:20px;}
+  #home h1{font-size:20px;letter-spacing:.14em;text-transform:uppercase;margin:0 0 8px;font-weight:700;}
+  #home p.sub{font-size:13px;line-height:1.6;max-width:640px;color:#4d4a43;margin:0;}
+
+  .group-block{margin-bottom:34px;}
+  .group-block h2{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#7a7669;margin:0 0 14px;}
+  .cards{display:grid;grid-template-columns:repeat(auto-fill, minmax(240px,1fr));gap:14px;}
+  .card{
+    display:block;border:1px solid var(--rule);background:var(--paper);padding:16px;
+    text-decoration:none;color:var(--ink);transition:border-color .15s ease, background .15s ease;
+  }
+  .card:hover{border-color:var(--ink);background:#e6e2d6;}
+  .card h3{font-size:12.5px;letter-spacing:.03em;margin:0 0 8px;font-weight:700;}
+  .card p{font-size:11px;line-height:1.55;color:#4d4a43;margin:0;}
+
+  /* ---------- mobile ---------- */
+  @media (max-width:800px){
+    .shell{display:block;}
+    .topbar{
+      display:flex;align-items:center;gap:14px;position:fixed;top:0;left:0;right:0;height:var(--topbar-h);
+      background:var(--paper);border-bottom:1px solid var(--rule);padding:0 16px;z-index:30;
+    }
+    .topbar button{
+      font-family:inherit;background:transparent;border:1px solid var(--ink);color:var(--ink);
+      width:34px;height:34px;font-size:16px;cursor:pointer;line-height:1;
+    }
+    .topbar .topbar-title{font-size:12px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;}
+
+    .sidebar{
+      position:fixed;top:0;left:0;height:100%;z-index:40;
+      transform:translateX(-100%);transition:transform .2s ease;
+      width:82vw;max-width:300px;
+    }
+    .sidebar.open{transform:translateX(0);}
+
+    .backdrop{
+      display:none;position:fixed;inset:0;background:rgba(20,19,16,0.4);z-index:35;
+    }
+    .backdrop.open{display:block;}
+
+    .stage-wrap{padding-top:var(--topbar-h);}
+    #frame{height:calc(100vh - var(--topbar-h));}
+    #home{padding:28px 20px 60px;}
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <div class="backdrop" id="backdrop"></div>
+
+  <nav class="sidebar" id="sidebar">
+    <div class="brand">
+      <a href="#" id="brandLink">
+        <h1>Patterngen</h1>
+        <p>Generator index</p>
+      </a>
+    </div>
+    <div class="nav-groups" id="navGroups"></div>
+    <div class="sidebar-foot">Add new generators by extending the REGISTRY array in this file's script.</div>
+  </nav>
+
+  <div class="stage-wrap">
+    <div class="topbar">
+      <button id="btnMenu" type="button" aria-label="Toggle menu">&#9776;</button>
+      <div class="topbar-title" id="topbarTitle">Patterngen</div>
+    </div>
+
+    <div id="home">
+      <header>
+        <h1>Patterngen</h1>
+        <p class="sub">A working set of generative pattern tools — mostly match-data and tactics-board
+        abstractions rendered as SVG, exportable as SVG or PNG. Pick one from the list on the left, or a card
+        below.</p>
+      </header>
+      <div id="groupBlocks"></div>
+    </div>
+
+    <iframe id="frame" title="Generator preview"></iframe>
+  </div>
+
+</div>
+
+<script>
+// Add a generator by appending an entry here — id (used in the URL hash),
+// title, file (relative path), group (sidebar/card section label), and a
+// one-line description. Order within the array sets display order.
+const REGISTRY = [
+  {id:'line-field', title:'Line Field Generator', file:'line_field_generator.html', group:'Line Field',
+    description:'Abstract tactics-board line field — even/random/clustered spread, Blob/Line/L/U bundle shapes, arrowheads, SVG/PNG export.'},
+
+  {id:'vector-telemetry', title:'Vector Telemetry Overlay', file:'vector_telemetry_overlay.html', group:'Vector',
+    description:'Hairline hatch bands, crosshair tags and monospace readouts layered like GPS/EPTS match telemetry.'},
+  {id:'vector-trace', title:'Vector Trace', file:'vector_trace.html', group:'Vector',
+    description:'Organic metaball blobs rasterized onto a coarse vector grid.'},
+
+  {id:'material-studio', title:'Material Studio', file:'material_studio.html', group:'Goal Rhythm',
+    description:'Goal Rhythm’s soft-bloom engine rendered through a tiles & tufted-rug material layer.'},
+  {id:'soft-bloom-animated', title:'Soft Bloom, Animated', file:'data_pattern_soft_animated.html', group:'Goal Rhythm',
+    description:'Soft-bloom column render with a rippled-glass animation pass.'},
+  {id:'soft-bloom', title:'Soft Bloom', file:'data_pattern_soft.html', group:'Goal Rhythm',
+    description:'Match-data columns rendered as wavy soft blooms instead of hard bars.'},
+  {id:'goal-rhythm', title:'Goal Rhythm', file:'data_pattern.html', group:'Goal Rhythm',
+    description:'One column per match; height and color trace the scoreline.'},
+
+  {id:'tape-numerals', title:'Tape Numerals', file:'tape_numeral_generator.html', group:'Tape Numerals',
+    description:'Two-digit numbers built from a 7-segment layout, each segment its own hand-cut tape strip.'},
+];
+
+// ---------- build sidebar + home groups from REGISTRY ----------
+function groupBy(list, key){
+  const order = [], map = {};
+  list.forEach(item=>{
+    const k = item[key];
+    if(!map[k]){ map[k] = []; order.push(k); }
+    map[k].push(item);
+  });
+  return order.map(k=>({group:k, items:map[k]}));
+}
+
+const navGroups = document.getElementById('navGroups');
+const groupBlocks = document.getElementById('groupBlocks');
+
+groupBy(REGISTRY, 'group').forEach(({group, items})=>{
+  const navSection = document.createElement('div');
+  navSection.className = 'nav-group';
+  const navH = document.createElement('h2');
+  navH.textContent = group;
+  navSection.appendChild(navH);
+  items.forEach(item=>{
+    const a = document.createElement('a');
+    a.href = '#' + item.id;
+    a.className = 'nav-link';
+    a.dataset.id = item.id;
+    a.textContent = item.title;
+    navSection.appendChild(a);
+  });
+  navGroups.appendChild(navSection);
+
+  const block = document.createElement('div');
+  block.className = 'group-block';
+  const blockH = document.createElement('h2');
+  blockH.textContent = group;
+  block.appendChild(blockH);
+  const cards = document.createElement('div');
+  cards.className = 'cards';
+  items.forEach(item=>{
+    const card = document.createElement('a');
+    card.href = '#' + item.id;
+    card.className = 'card';
+    const h3 = document.createElement('h3');
+    h3.textContent = item.title;
+    const p = document.createElement('p');
+    p.textContent = item.description;
+    card.appendChild(h3);
+    card.appendChild(p);
+    cards.appendChild(card);
+  });
+  block.appendChild(cards);
+  groupBlocks.appendChild(block);
+});
+
+// ---------- view switching ----------
+const frame = document.getElementById('frame');
+const home = document.getElementById('home');
+const topbarTitle = document.getElementById('topbarTitle');
+
+function selectGenerator(id){
+  const entry = REGISTRY.find(g=>g.id===id);
+  if(!entry){ showHome(); return; }
+  home.style.display = 'none';
+  frame.style.display = 'block';
+  if(frame.src.indexOf(entry.file) === -1) frame.src = entry.file;
+  document.title = entry.title + ' · Patterngen';
+  topbarTitle.textContent = entry.title;
+  document.querySelectorAll('.nav-link').forEach(a=>a.classList.toggle('active', a.dataset.id===id));
+  closeSidebarMobile();
+}
+
+function showHome(){
+  home.style.display = 'block';
+  frame.style.display = 'none';
+  frame.src = '';
+  document.title = 'Patterngen';
+  topbarTitle.textContent = 'Patterngen';
+  document.querySelectorAll('.nav-link').forEach(a=>a.classList.remove('active'));
+  closeSidebarMobile();
+}
+
+function syncFromHash(){
+  const id = location.hash.replace('#','');
+  if(id) selectGenerator(id); else showHome();
+}
+window.addEventListener('hashchange', syncFromHash);
+document.getElementById('brandLink').addEventListener('click', ()=>{ if(!location.hash) showHome(); });
+
+// ---------- mobile menu ----------
+const sidebar = document.getElementById('sidebar');
+const backdrop = document.getElementById('backdrop');
+function openSidebarMobile(){ sidebar.classList.add('open'); backdrop.classList.add('open'); }
+function closeSidebarMobile(){ sidebar.classList.remove('open'); backdrop.classList.remove('open'); }
+document.getElementById('btnMenu').addEventListener('click', ()=>{
+  sidebar.classList.contains('open') ? closeSidebarMobile() : openSidebarMobile();
+});
+backdrop.addEventListener('click', closeSidebarMobile);
+
+syncFromHash();
+</script>
+</body>
+</html>

@@ -1,6 +1,6 @@
-# Football-Relevant Filler Text/Data for Vector Graphics
+# Match-Relevant Filler Text/Data for Vector Graphics
 
-Analogous to station data (grid refs, sync codes, system status, crosshairs) — maps directly onto real football tracking technology: GPS vests, ball chips, VAR calibration.
+Analogous to station data (grid refs, sync codes, system status, crosshairs) — maps directly onto real match tracking technology: GPS vests, ball chips, VAR calibration.
 
 ## Player Tracking Data (GPS/EPTS systems, e.g. Catapult, STATSports)
 ```
@@ -56,4 +56,4 @@ TRAJECTORY LOGGED
 
 ---
 
-**Recommendation:** VAR calibration + ball tracking chips work strongest — inherent crosshair/grid logic, reads as real system data rather than bolted-on football context.
+**Recommendation:** VAR calibration + ball tracking chips work strongest — inherent crosshair/grid logic, reads as real system data rather than bolted-on match context.
