@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Patterngen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spline+Sans+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg-page:#e4e1d9;
@@ -15,7 +18,7 @@
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;height:100%;background:var(--bg-page);color:var(--ink);
-    font-family:'Courier New', ui-monospace, SFMono-Regular, Menlo, monospace;}
+    font-family:'Spline Sans Mono', ui-monospace, SFMono-Regular, Menlo, monospace;}
   a{color:inherit;}
 
   .shell{display:flex;min-height:100vh;}
@@ -127,9 +130,7 @@
     <div id="home">
       <header>
         <h1>Patterngen</h1>
-        <p class="sub">A working set of generative pattern tools — mostly match-data and tactics-board
-        abstractions rendered as SVG, exportable as SVG or PNG. Pick one from the list on the left, or a card
-        below.</p>
+        <p class="sub">PatternGen is a generative practice working in line fields, vector telemetry and data rhythm. </p>
       </header>
       <div id="groupBlocks"></div>
     </div>
@@ -152,14 +153,14 @@ const REGISTRY = [
   {id:'vector-trace', title:'Vector Trace', file:'vector_trace.html', group:'Vector',
     description:'Organic metaball blobs rasterized onto a coarse vector grid.'},
 
-  {id:'material-studio', title:'Material Studio', file:'material_studio.html', group:'Goal Rhythm',
-    description:'Goal Rhythm’s soft-bloom engine rendered through a tiles & tufted-rug material layer.'},
-  {id:'soft-bloom-animated', title:'Soft Bloom, Animated', file:'data_pattern_soft_animated.html', group:'Goal Rhythm',
+  {id:'material-studio', title:'Material Studio', file:'material_studio.html', group:'Data Rhythm',
+    description:'Data Rhythm’s soft-bloom engine rendered through a tiles & tufted-rug material layer.'},
+  {id:'soft-bloom-animated', title:'Soft Bloom, Animated', file:'data_pattern_soft_animated.html', group:'Data Rhythm',
     description:'Soft-bloom column render with a rippled-glass animation pass.'},
-  {id:'soft-bloom', title:'Soft Bloom', file:'data_pattern_soft.html', group:'Goal Rhythm',
-    description:'Match-data columns rendered as wavy soft blooms instead of hard bars.'},
-  {id:'goal-rhythm', title:'Goal Rhythm', file:'data_pattern.html', group:'Goal Rhythm',
-    description:'One column per match; height and color trace the scoreline.'},
+  {id:'soft-bloom', title:'Soft Bloom', file:'data_pattern_soft.html', group:'Data Rhythm',
+    description:'Data-driven columns rendered as wavy soft blooms instead of hard bars.'},
+  {id:'goal-rhythm', title:'Data Rhythm', file:'data_pattern.html', group:'Data Rhythm',
+    description:'One column per data set; height and color trace the running score.'},
 
   {id:'tape-numerals', title:'Tape Numerals', file:'tape_numeral_generator.html', group:'Tape Numerals',
     description:'Two-digit numbers built from a 7-segment layout, each segment its own hand-cut tape strip.'},

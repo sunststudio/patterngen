@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <title>Vector Telemetry Overlay (prototype)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spline+Sans+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg-page:#e4e1d9;
@@ -12,7 +15,7 @@
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;background:var(--bg-page);color:var(--ink);
-    font-family: 'Courier New', ui-monospace, SFMono-Regular, Menlo, monospace;}
+    font-family: 'Spline Sans Mono', ui-monospace, SFMono-Regular, Menlo, monospace;}
   .wrap{max-width:1180px;margin:0 auto;padding:48px 28px 80px;}
   header{margin-bottom:28px;border-bottom:1px solid var(--rule);padding-bottom:20px;}
   h1{font-size:20px;letter-spacing:0.14em;text-transform:uppercase;margin:0 0 8px;font-weight:700;}
@@ -136,7 +139,7 @@
 const SVG_NS = "http://www.w3.org/2000/svg";
 const svg = document.getElementById('stage');
 const W = 960, H = 1280;
-const MONO = '"Courier New", ui-monospace, SFMono-Regular, Menlo, monospace';
+const MONO = '"Spline Sans Mono", ui-monospace, SFMono-Regular, Menlo, monospace';
 
 function svgEl(tag, attrs){
   const el = document.createElementNS(SVG_NS, tag);
@@ -162,7 +165,7 @@ function mulberry32(seed){
 function pick(arr, rng){ return arr[Math.floor(rng()*arr.length)]; }
 
 // fixed (not seed-linked) per-slice offset generator, same formula as
-// goal_pattern_soft.html's slice displacement — a given slice count always
+// data_pattern_soft.html's slice displacement — a given slice count always
 // produces the same offset pattern regardless of the Seed field.
 function seededRandom(seed){
   const x = Math.sin(seed*9999)*10000;
@@ -369,7 +372,7 @@ function render(){
 
   // slice displacement: cut the art layer into strips, each shifted by its
   // own fixed offset with a wraparound copy on either side — the SVG
-  // equivalent of goal_pattern_soft's canvas slice-displacement pass, done
+  // equivalent of data_pattern_soft's canvas slice-displacement pass, done
   // with clipPath + <use> instead of pixel copies so it stays vector/export-safe.
   const defs = svgEl('defs', {});
   art.id = 'artLayer';

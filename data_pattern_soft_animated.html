@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Germany — Soft Bloom, Animated (prototype)</title>
+<title>Soft Bloom, Animated (prototype)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spline+Sans+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg-page:#e4e1d9;
@@ -12,7 +15,7 @@
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;background:var(--bg-page);color:var(--ink);
-    font-family: 'Courier New', ui-monospace, SFMono-Regular, Menlo, monospace;}
+    font-family: 'Spline Sans Mono', ui-monospace, SFMono-Regular, Menlo, monospace;}
   .wrap{max-width:1180px;margin:0 auto;padding:48px 28px 80px;}
   header{margin-bottom:28px;border-bottom:1px solid var(--rule);padding-bottom:20px;}
   h1{font-size:20px;letter-spacing:0.14em;text-transform:uppercase;margin:0 0 8px;font-weight:700;}
@@ -50,11 +53,11 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>Goal Rhythm — Soft Bloom, Animated (prototype)</h1>
-    <p class="sub">Same rendering pipeline as goal_pattern_soft.html (column fill, soft blooms, rippled glass,
-    slice displacement), but the goal-timeline data feeding it is replaced with a continuously flowing procedural
-    field — column color and edge wobble drift from layered sine phases advancing in real time, and the goal
-    "blooms" become independent glow blobs that rise, drift and fade on their own slow loops. Match records are
+    <h1>Data Rhythm — Soft Bloom, Animated (prototype)</h1>
+    <p class="sub">Same rendering pipeline as data_pattern_soft.html (column fill, soft blooms, rippled glass,
+    slice displacement), but the score-timeline data feeding it is replaced with a continuously flowing procedural
+    field — column color and edge wobble drift from layered sine phases advancing in real time, and the score
+    "blooms" become independent glow blobs that rise, drift and fade on their own slow loops. Data records are
     kept only as structural seeds (column count/height/character) via the All / Men / Women split — the content
     itself is no longer literal score data. Key colors, Density/Spread, Rippled glass and Slice displacement stay
     manual, exactly as in the static tool; only the "data" driving the column fill is now animated.</p>
@@ -126,7 +129,7 @@
   </div>
 
   <footer>
-    Prototype for an animated / motion-graphic direction on top of goal_pattern_soft.html. The composition is
+    Prototype for an animated / motion-graphic direction on top of data_pattern_soft.html. The composition is
     re-rendered at a reduced working resolution while playing (rippled glass is a per-pixel pass, too slow to
     run at full res every frame) and upscaled onto the visible canvas; pausing or exporting always does one
     full-resolution pass, so paused frames and PNG exports stay crisp.
